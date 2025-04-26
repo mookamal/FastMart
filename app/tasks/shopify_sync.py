@@ -9,6 +9,17 @@ from app.db.base import SessionLocal
 from app.db.models import Store, Product, Customer, Order, LineItem
 from app.services.platform_connector import get_connector
 
+from datetime import datetime, timedelta, timezone
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+
+from app.core.database import get_db
+from app.models.store import Store
+from app.models.customer import Customer
+from app.models.product import Product
+from app.models.order import Order
+from app.services.platform_connector import get_connector
+from .celery_app import celery_app
 
 logger = logging.getLogger(__name__) 
 
@@ -193,5 +204,114 @@ async def initial_sync_store(self, store_id: int):
             logger.critical(f"Initial sync for store {store_id} failed after max retries.")
             # Optionally, mark the store sync status as failed in the DB
             return f"Sync failed permanently for store {store_id}."
+    finally:
+        await db.close()
+
+
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
+async def periodic_sync_store(self, store_id: int):
+    """Periodically syncs data for a specific store since the last sync."""
+    print(f"Starting periodic sync for store_id: {store_id}")
+    db: AsyncSession = await anext(get_db())
+    try:
+        result = await db.execute(select(Store).where(Store.id == store_id))
+        store = result.scalars().first()
+
+        if not store:
+            print(f"Store with id {store_id} not found.")
+            return
+        if not store.is_active:
+            print(f"Store {store.name} (id: {store_id}) is inactive. Skipping periodic sync.")
+            return
+        if not store.platform:
+             print(f"Store {store.name} (id: {store_id}) has no platform defined. Skipping sync.")
+             return
+
+        connector = get_connector(store.platform)
+        api_credentials = {
+            'shop_url': store.shop_url,
+            'api_key': store.api_key,
+            'password': store.api_password,
+            'api_version': store.api_version
+        }
+        connector.connect(**api_credentials)
+
+        # Determine the 'since' timestamp for fetching updates
+        since = None
+        if store.last_sync_at:
+            # Go back a bit further to avoid missing data due to timing issues/clock skew
+            since = store.last_sync_at - timedelta(minutes=5)
+            # Ensure 'since' is timezone-aware (UTC) if last_sync_at is
+            if store.last_sync_at.tzinfo is None:
+                 # Assuming last_sync_at was stored as naive UTC
+                 since = timezone.utc.localize(since) 
+            print(f"Syncing store {store.name} (id: {store_id}) since {since.isoformat()}")
+        else:
+            # If never synced, maybe trigger initial sync or log a warning?
+            # For now, we'll just log and potentially fetch everything (since=None)
+            print(f"Store {store.name} (id: {store_id}) has no last_sync_at. Performing full fetch for periodic sync.")
+            # Alternatively, could call initial_sync_store.delay(store_id) and return
+
+        # --- Fetch Updated Data --- 
+        # Note: Adapt the UPSERT logic from initial_sync_store
+        # The connector methods need to accept the 'since' parameter
+
+        print(f"Fetching updated customers for store {store_id} since {since}")
+        updated_customers_data = await connector.get_customers(since=since)
+        # TODO: Implement UPSERT logic for customers
+        print(f"Fetched {len(updated_customers_data)} updated customers.")
+        # Example placeholder for UPSERT:
+        # for customer_data in updated_customers_data:
+        #     await upsert_customer(db, store_id, customer_data)
+
+        print(f"Fetching updated products for store {store_id} since {since}")
+        updated_products_data = await connector.get_products(since=since)
+        # TODO: Implement UPSERT logic for products
+        print(f"Fetched {len(updated_products_data)} updated products.")
+        # Example placeholder for UPSERT:
+        # for product_data in updated_products_data:
+        #     await upsert_product(db, store_id, product_data)
+
+        print(f"Fetching updated orders for store {store_id} since {since}")
+        updated_orders_data = await connector.get_orders(since=since)
+        # TODO: Implement UPSERT logic for orders and relationships
+        print(f"Fetched {len(updated_orders_data)} updated orders.")
+        # Example placeholder for UPSERT:
+        # for order_data in updated_orders_data:
+        #     await upsert_order(db, store_id, order_data)
+
+        # --- Update Last Sync Timestamp --- 
+        store.last_sync_at = datetime.now(timezone.utc) # Use timezone-aware datetime
+        db.add(store)
+        await db.commit()
+        print(f"Successfully completed periodic sync for store_id: {store_id}")
+
+    except Exception as e:
+        await db.rollback()
+        print(f"Error during periodic sync for store_id {store_id}: {e}")
+        # Retry the task using Celery's built-in mechanism
+        self.retry(exc=e)
+    finally:
+        await db.close()
+
+# --- Scheduler Task --- 
+
+@celery_app.task
+async def schedule_periodic_syncs():
+    """Fetches all active stores and schedules periodic_sync_store for each."""
+    print("Running scheduler task: schedule_periodic_syncs")
+    db: AsyncSession = await anext(get_db())
+    try:
+        result = await db.execute(select(Store).where(Store.is_active == True))
+        active_stores = result.scalars().all()
+        
+        print(f"Found {len(active_stores)} active stores to schedule sync for.")
+        for store in active_stores:
+            print(f"Scheduling periodic sync for store: {store.name} (id: {store.id})")
+            periodic_sync_store.delay(store.id)
+            
+    except Exception as e:
+        print(f"Error in scheduler task: {e}")
+        # Consider logging this error more formally
     finally:
         await db.close()

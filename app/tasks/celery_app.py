@@ -11,7 +11,7 @@ celery_app = Celery(
     'analitc_project',
     broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'),
     backend=os.getenv('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0'),
-    include=['app.tasks.tasks']  # This will be created later
+    include=['app.tasks.tasks', 'app.tasks.shopify_sync']  # Include shopify_sync tasks
 )
 
 # Celery configuration
@@ -28,8 +28,14 @@ celery_app.conf.beat_schedule = {
     # Example scheduled task (uncomment and modify as needed):
     # 'example-task': {
     #     'task': 'app.tasks.tasks.example_task',
-    #     'schedule': crontab(minute='1'),  # Run every 15 minutes
+    #     'schedule': crontab(minute='*/15'),  # Run every 15 minutes
     # },
+    'schedule-periodic-store-syncs': {
+        'task': 'app.tasks.shopify_sync.schedule_periodic_syncs',
+        'schedule': crontab(minute='0', hour='*'),  # Run every hour at the start of the hour
+        # Use timedelta(hours=1) for exactly one hour interval if crontab is not preferred
+        # 'schedule': timedelta(hours=1),
+    },
 }
 
 # Optional: Configure task routing and queues
@@ -39,4 +45,4 @@ celery_app.conf.task_routes = {
 }
 
 if __name__ == '__main__':
-    celery_app.start() 
+    celery_app.start()
