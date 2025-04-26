@@ -5,9 +5,10 @@ import uuid
 from app.services.platform_connector import get_connector
 from app.core.security import encrypt_token
 # TODO: Import database session and store CRUD operations
-# from app.db.session import get_db
-# from app.crud.store import create_or_update_store
-# from app.schemas.store import StoreCreate, Store
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import get_db
+from app.crud.store import create_or_update_store
+from app.schemas.store import StoreCreate, Store
 
 router = APIRouter()
 
@@ -16,7 +17,7 @@ async def handle_shopify_callback(
     code: str = Query(...),
     shop: str = Query(...),
     # state: str = Query(...), # Optional: For associating with user session/request
-    # db: AsyncSession = Depends(get_db) # TODO: Uncomment when DB is integrated
+    db: AsyncSession = Depends(get_db)
 ):
     """Handles the redirect callback from Shopify after OAuth authorization."""
     try:
@@ -39,16 +40,15 @@ async def handle_shopify_callback(
         user_id = uuid.uuid4() # Placeholder UUID
 
         # 5. Create or update the store record in the database
-        # TODO: Implement DB interaction
-        # store_data = StoreCreate(
-        #     user_id=user_id,
-        #     platform="shopify",
-        #     domain=shop,
-        #     access_token=encrypted_token,
-        #     scope=scope,
-        #     is_active=True
-        # )
-        # db_store = await create_or_update_store(db=db, store=store_data)
+        store_data = StoreCreate(
+            user_id=user_id,
+            platform="shopify",
+            domain=shop,
+            access_token=encrypted_token,
+            scope=scope,
+            is_active=True
+        )
+        db_store = await create_or_update_store(db=db, store=store_data)
 
         # 6. (Optional) Dispatch Celery task for initial sync
         # TODO: Implement Celery task dispatch
@@ -58,7 +58,7 @@ async def handle_shopify_callback(
         return {
             "message": "Shopify store connected successfully!",
             "shop_domain": shop,
-            # "store_id": db_store.id # TODO: Uncomment when DB is integrated
+            "store_id": db_store.id
         }
 
     except ValueError as ve:
