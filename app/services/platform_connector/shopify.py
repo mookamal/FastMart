@@ -1,122 +1,374 @@
 import os
-from typing import Dict, List, Optional
-from datetime import datetime
+import time
+from typing import Dict, List, Optional, Any
+from datetime import datetime, timezone
 import uuid
+from decimal import Decimal
 import shopify
 from dotenv import load_dotenv
+from shopify.resources.resource import ShopifyResource
+from shopify.collection import PaginatedCollection
+from shopify.exceptions import ShopifyError, SessionNotActivatedError
 
 from .base import EcommercePlatformConnector
+from app.core.security import decrypt_token # Assuming security functions are here
 
 # Load environment variables
 load_dotenv()
 
+# Define a retry decorator for rate limiting
+def retry_on_rate_limit(max_retries=3, delay=5):
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return await func(*args, **kwargs)
+                except ShopifyError as e:
+                    # Check if it's a rate limit error (status code 429)
+                    # The shopify library might not expose status code directly in ShopifyError
+                    # We might need to rely on error message content or assume certain errors are rate limits
+                    # For simplicity, we'll retry on any ShopifyError for now, but refine if possible.
+                    # A more robust check would inspect e.response.code if available.
+                    if "exceeded call limit" in str(e).lower() or (hasattr(e, 'response') and e.response and e.response.code == 429):
+                        retries += 1
+                        if retries >= max_retries:
+                            raise Exception(f"Shopify API rate limit exceeded after {max_retries} retries: {e}")
+                        print(f"Rate limit hit. Retrying in {delay} seconds... ({retries}/{max_retries})")
+                        time.sleep(delay)
+                    else:
+                        # Re-raise other Shopify errors immediately
+                        raise e
+                except Exception as e:
+                    # Handle other potential exceptions during the API call
+                    raise Exception(f"An unexpected error occurred during Shopify API call: {e}")
+            # This line should technically be unreachable if max_retries > 0
+            raise Exception("Max retries reached without success.")
+        return wrapper
+    return decorator
+
 class ShopifyConnector(EcommercePlatformConnector):
     """Shopify platform connector implementation."""
-    
+
+    API_VERSION = '2024-04' # Use a recent, stable API version
+
     async def get_platform_name(self) -> str:
         return "shopify"
-    
+
     async def exchange_code_for_token(self, code: str, shop_domain: str) -> Dict:
         """
         Exchange authorization code for access token using Shopify OAuth.
-        
+
         Args:
             code: The authorization code from Shopify OAuth
             shop_domain: The shop's domain (e.g., 'myshop.myshopify.com')
-            
+
         Returns:
             Dict containing access_token and scope
-            
+
         Raises:
             Exception if the exchange fails
         """
         api_key = os.getenv('SHOPIFY_API_KEY')
         api_secret = os.getenv('SHOPIFY_API_SECRET')
-        
+
         if not api_key or not api_secret:
             raise Exception("Shopify API credentials not configured")
-        
+
         try:
             # Initialize Shopify session
             shopify.Session.setup(api_key=api_key, secret=api_secret)
-            session = shopify.Session(shop_domain, '2024-01')
-            
+            session = shopify.Session(shop_domain, self.API_VERSION)
+
             # Exchange code for access token
+            # Note: The library might require scopes to be passed here if not default
             access_token = session.request_token(code)
-            
+
+            # It's good practice to fetch the shop details to confirm connection
+            # shopify.ShopifyResource.activate_session(session)
+            # shop = shopify.Shop.current() # This confirms the token works
+            # shopify.ShopifyResource.clear_session()
+
             return {
                 'access_token': access_token,
-                'scope': session.scope
+                'scope': session.scope # Assuming scope is available on the session object
             }
+        except ShopifyError as e:
+            raise Exception(f"Failed to exchange code for token (Shopify API Error): {str(e)}")
         except Exception as e:
-            raise Exception(f"Failed to exchange code for token: {str(e)}")
-    
-    async def Workspace_orders(
-        self, 
-        access_token: str, 
-        shop_domain: str, 
-        since: Optional[datetime] = None, 
-        limit: int = 50
-    ) -> List[Dict]:
-        """Fetch orders from Shopify."""
-        # TODO: Implement order fetching
-        return []
-    
-    async def Workspace_products(
-        self, 
-        access_token: str, 
-        shop_domain: str, 
-        since: Optional[datetime] = None, 
-        limit: int = 50
-    ) -> List[Dict]:
-        """Fetch products from Shopify."""
-        # TODO: Implement product fetching
-        return []
-    
-    async def Workspace_customers(
-        self, 
-        access_token: str, 
-        shop_domain: str, 
-        since: Optional[datetime] = None, 
-        limit: int = 50
-    ) -> List[Dict]:
-        """Fetch customers from Shopify."""
-        # TODO: Implement customer fetching
-        return []
-    
-    async def map_order_to_db_model(
-        self, 
-        platform_order_data: Dict, 
-        store_id: uuid.UUID
-    ) -> Dict:
-        """Transform Shopify order data into our database model format."""
-        # TODO: Implement order mapping
-        return {}
-    
-    async def map_product_to_db_model(
-        self, 
-        platform_product_data: Dict, 
-        store_id: uuid.UUID
-    ) -> Dict:
-        """Transform Shopify product data into our database model format."""
-        # TODO: Implement product mapping
-        return {}
-    
-    async def map_customer_to_db_model(
-        self, 
-        platform_customer_data: Dict, 
-        store_id: uuid.UUID
-    ) -> Dict:
-        """Transform Shopify customer data into our database model format."""
-        # TODO: Implement customer mapping
-        return {}
-    
-    async def get_api_client(self, access_token: str, shop_domain: str):
-        """Get a Shopify API client instance."""
+            # Catch other potential errors (network issues, etc.)
+            raise Exception(f"Failed to exchange code for token (General Error): {str(e)}")
+
+    async def get_api_client(self, access_token: str, shop_domain: str) -> shopify:
+        """Get and activate a Shopify API client instance."""
+        decrypted_token = decrypt_token(access_token) # Use the decrypted token
+        if not decrypted_token:
+            raise ValueError("Invalid or missing access token after decryption.")
+
         try:
-            session = shopify.Session(shop_domain, '2024-01')
-            session.token = access_token
+            session = shopify.Session(shop_domain, self.API_VERSION)
+            session.token = decrypted_token
             shopify.ShopifyResource.activate_session(session)
+            # print(f"Shopify session activated for {shop_domain}") # Debugging
             return shopify
+        except SessionNotActivatedError as e:
+             raise Exception(f"Failed to activate Shopify session (maybe invalid token?): {str(e)}")
         except Exception as e:
-            raise Exception(f"Failed to initialize Shopify client: {str(e)}") 
+            raise Exception(f"Failed to initialize Shopify client: {str(e)}")
+
+    @retry_on_rate_limit()
+    async def _fetch_all_resources(self, resource_class: ShopifyResource, since: Optional[datetime] = None, limit: int = 50, **kwargs) -> List[Dict]:
+        """Generic method to fetch all pages of a resource."""
+        all_resources_data = []
+        params = {'limit': min(limit, 250)} # Shopify max limit is 250
+        if since:
+            # Format datetime to ISO 8601 string for Shopify API
+            params['updated_at_min'] = since.isoformat()
+
+        params.update(kwargs) # Add any extra specific params
+
+        resources: PaginatedCollection = resource_class.find(**params)
+
+        while True:
+            current_page_resources = resources.elements
+            for resource in current_page_resources:
+                all_resources_data.append(resource.to_dict())
+
+            if not resources.has_next_page():
+                break
+
+            # Fetch the next page
+            try:
+                resources = resources.next_page()
+            except ShopifyError as e:
+                 # Handle potential errors during pagination itself (e.g., token expired mid-sync)
+                 print(f"Error fetching next page: {e}")
+                 # Depending on the error, might want to break or retry
+                 if "token" in str(e).lower(): # Basic check for token errors
+                     raise Exception(f"Shopify token likely invalid during pagination: {e}")
+                 # For now, re-raise other pagination errors after logging
+                 raise e
+            except Exception as e:
+                print(f"Unexpected error during pagination: {e}")
+                raise e
+
+        return all_resources_data
+
+    async def Workspace_orders(
+        self,
+        access_token: str,
+        shop_domain: str,
+        since: Optional[datetime] = None,
+        limit: int = 50 # Note: this limit is per page, _fetch_all_resources handles pagination
+    ) -> List[Dict]:
+        """Fetch orders from Shopify, handling pagination and rate limits."""
+        client = await self.get_api_client(access_token, shop_domain)
+        try:
+            # Add status='any' to fetch orders regardless of status
+            orders_data = await self._fetch_all_resources(
+                client.Order,
+                since=since,
+                limit=limit,
+                status='any' # Fetch all orders regardless of status
+            )
+            return orders_data
+        except Exception as e:
+            print(f"Error fetching Shopify orders for {shop_domain}: {e}")
+            # Depending on requirements, might return empty list or re-raise
+            raise e # Re-raise for now to signal failure
+        finally:
+            client.ShopifyResource.clear_session()
+            # print(f"Shopify session cleared for {shop_domain}") # Debugging
+
+    async def Workspace_products(
+        self,
+        access_token: str,
+        shop_domain: str,
+        since: Optional[datetime] = None,
+        limit: int = 50
+    ) -> List[Dict]:
+        """Fetch products from Shopify, handling pagination and rate limits."""
+        client = await self.get_api_client(access_token, shop_domain)
+        try:
+            products_data = await self._fetch_all_resources(
+                client.Product,
+                since=since,
+                limit=limit
+            )
+            return products_data
+        except Exception as e:
+            print(f"Error fetching Shopify products for {shop_domain}: {e}")
+            raise e
+        finally:
+            client.ShopifyResource.clear_session()
+
+    async def Workspace_customers(
+        self,
+        access_token: str,
+        shop_domain: str,
+        since: Optional[datetime] = None,
+        limit: int = 50
+    ) -> List[Dict]:
+        """Fetch customers from Shopify, handling pagination and rate limits."""
+        client = await self.get_api_client(access_token, shop_domain)
+        try:
+            customers_data = await self._fetch_all_resources(
+                client.Customer,
+                since=since,
+                limit=limit
+            )
+            return customers_data
+        except Exception as e:
+            print(f"Error fetching Shopify customers for {shop_domain}: {e}")
+            raise e
+        finally:
+            client.ShopifyResource.clear_session()
+
+    def _parse_datetime(self, value: Optional[str]) -> Optional[datetime]:
+        """Safely parse ISO 8601 datetime strings from Shopify."""
+        if not value:
+            return None
+        try:
+            # Handle potential timezone offsets like -04:00 or Z
+            dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            # Ensure datetime is timezone-aware (UTC)
+            if dt.tzinfo is None:
+                return dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(timezone.utc)
+        except (ValueError, TypeError):
+            print(f"Warning: Could not parse datetime value: {value}")
+            return None
+
+    def _safe_decimal(self, value: Any) -> Decimal:
+        """Safely convert value to Decimal, defaulting to 0.00."""
+        if value is None:
+            return Decimal('0.00')
+        try:
+            return Decimal(str(value))
+        except Exception:
+             print(f"Warning: Could not convert value to Decimal: {value}")
+             return Decimal('0.00')
+
+    async def map_order_to_db_model(
+        self,
+        platform_order_data: Dict,
+        # store_id: uuid.UUID # store_id is handled by the caller/sync process
+    ) -> Dict:
+        """Transform Shopify order data into our database model format (excluding IDs)."""
+        return {
+            'platform_order_id': str(platform_order_data.get('id')),
+            'order_number': str(platform_order_data.get('order_number')),
+            'total_price': self._safe_decimal(platform_order_data.get('total_price')),
+            'currency': platform_order_data.get('currency'),
+            'financial_status': platform_order_data.get('financial_status'),
+            'fulfillment_status': platform_order_data.get('fulfillment_status'), # Note: might be None
+            'processed_at': self._parse_datetime(platform_order_data.get('processed_at')),
+            'platform_created_at': self._parse_datetime(platform_order_data.get('created_at')),
+            'platform_updated_at': self._parse_datetime(platform_order_data.get('updated_at')),
+            # 'customer_id' needs to be looked up based on platform_customer_id
+            'platform_customer_id': str(platform_order_data.get('customer', {}).get('id')) if platform_order_data.get('customer') else None,
+            # Line items need separate mapping and linking
+            'raw_line_items': platform_order_data.get('line_items', [])
+        }
+
+    async def map_product_to_db_model(
+        self,
+        platform_product_data: Dict,
+        # store_id: uuid.UUID
+    ) -> Dict:
+        """Transform Shopify product data into our database model format (excluding IDs)."""
+        return {
+            'platform_product_id': str(platform_product_data.get('id')),
+            'title': platform_product_data.get('title'),
+            'vendor': platform_product_data.get('vendor'),
+            'product_type': platform_product_data.get('product_type'),
+            'platform_created_at': self._parse_datetime(platform_product_data.get('created_at')),
+            'platform_updated_at': self._parse_datetime(platform_product_data.get('updated_at')),
+            # Variants might need separate handling if storing variant-level details
+            'variants': platform_product_data.get('variants', []) # Include variants for potential line item mapping
+        }
+
+    async def map_customer_to_db_model(
+        self,
+        platform_customer_data: Dict,
+        # store_id: uuid.UUID
+    ) -> Dict:
+        """Transform Shopify customer data into our database model format (excluding IDs)."""
+        return {
+            'platform_customer_id': str(platform_customer_data.get('id')),
+            'email': platform_customer_data.get('email'),
+            'first_name': platform_customer_data.get('first_name'),
+            'last_name': platform_customer_data.get('last_name'),
+            'orders_count': int(platform_customer_data.get('orders_count', 0)),
+            'total_spent': self._safe_decimal(platform_customer_data.get('total_spent')),
+            'platform_created_at': self._parse_datetime(platform_customer_data.get('created_at')),
+            'platform_updated_at': self._parse_datetime(platform_customer_data.get('updated_at')),
+        }
+
+    # Placeholder for line item mapping if needed later
+    async def map_line_item_to_db_model(
+        self,
+        platform_line_item_data: Dict,
+        # order_id: uuid.UUID, # Handled by caller
+        # product_id: Optional[uuid.UUID] # Handled by caller (lookup)
+    ) -> Dict:
+         """Transform Shopify line item data into our database model format (excluding IDs)."""
+         return {
+            'platform_line_item_id': str(platform_line_item_data.get('id')),
+            'platform_product_id': str(platform_line_item_data.get('product_id')) if platform_line_item_data.get('product_id') else None,
+            'platform_variant_id': str(platform_line_item_data.get('variant_id')) if platform_line_item_data.get('variant_id') else None,
+            'title': platform_line_item_data.get('title'),
+            'variant_title': platform_line_item_data.get('variant_title'),
+            'sku': platform_line_item_data.get('sku'),
+            'quantity': int(platform_line_item_data.get('quantity', 0)),
+            'price': self._safe_decimal(platform_line_item_data.get('price')),
+            # Add other relevant fields like 'vendor' if needed from line item
+         }
+
+# Example usage (for testing purposes, typically called from elsewhere)
+# async def main():
+#     load_dotenv()
+#     connector = ShopifyConnector()
+#     shop = 'your-shop-name.myshopify.com' # Replace with a real shop for testing
+#     token = os.getenv('SHOPIFY_TEST_ACCESS_TOKEN') # Needs a valid token
+
+#     if not token:
+#         print("Set SHOPIFY_TEST_ACCESS_TOKEN in .env for testing")
+#         return
+
+#     try:
+#         print("Fetching customers...")
+#         # customers = await connector.Workspace_customers(token, shop, since=datetime(2023, 1, 1, tzinfo=timezone.utc))
+#         customers = await connector.Workspace_customers(token, shop)
+#         print(f"Fetched {len(customers)} customers.")
+#         if customers:
+#             print("First customer data:", customers[0])
+#             mapped_customer = await connector.map_customer_to_db_model(customers[0])
+#             print("Mapped customer:", mapped_customer)
+
+#         print("\nFetching products...")
+#         products = await connector.Workspace_products(token, shop)
+#         print(f"Fetched {len(products)} products.")
+#         if products:
+#             print("First product data:", products[0])
+#             mapped_product = await connector.map_product_to_db_model(products[0])
+#             print("Mapped product:", mapped_product)
+
+#         print("\nFetching orders...")
+#         orders = await connector.Workspace_orders(token, shop)
+#         print(f"Fetched {len(orders)} orders.")
+#         if orders:
+#             print("First order data:", orders[0])
+#             mapped_order = await connector.map_order_to_db_model(orders[0])
+#             print("Mapped order:", mapped_order)
+#             if mapped_order.get('raw_line_items'):
+#                 mapped_line_item = await connector.map_line_item_to_db_model(mapped_order['raw_line_items'][0])
+#                 print("Mapped first line item:", mapped_line_item)
+
+
+#     except Exception as e:
+#         print(f"An error occurred: {e}")
+
+# if __name__ == "__main__":
+#     import asyncio
+#     asyncio.run(main())
