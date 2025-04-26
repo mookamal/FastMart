@@ -154,7 +154,7 @@ class ShopifyConnector(EcommercePlatformConnector):
 
         return all_resources_data
 
-    async def Workspace_orders(
+    async def fetch_orders(
         self,
         access_token: str,
         shop_domain: str,
@@ -180,7 +180,7 @@ class ShopifyConnector(EcommercePlatformConnector):
             client.ShopifyResource.clear_session()
             # print(f"Shopify session cleared for {shop_domain}") # Debugging
 
-    async def Workspace_products(
+    async def fetch_products(
         self,
         access_token: str,
         shop_domain: str,
@@ -202,7 +202,7 @@ class ShopifyConnector(EcommercePlatformConnector):
         finally:
             client.ShopifyResource.clear_session()
 
-    async def Workspace_customers(
+    async def fetch_customers(
         self,
         access_token: str,
         shop_domain: str,
@@ -338,8 +338,8 @@ class ShopifyConnector(EcommercePlatformConnector):
 
 #     try:
 #         print("Fetching customers...")
-#         # customers = await connector.Workspace_customers(token, shop, since=datetime(2023, 1, 1, tzinfo=timezone.utc))
-#         customers = await connector.Workspace_customers(token, shop)
+#         # customers = await connector.fetch_customers(token, shop, since=datetime(2023, 1, 1, tzinfo=timezone.utc))
+#         customers = await connector.fetch_customers(token, shop)
 #         print(f"Fetched {len(customers)} customers.")
 #         if customers:
 #             print("First customer data:", customers[0])
@@ -347,7 +347,7 @@ class ShopifyConnector(EcommercePlatformConnector):
 #             print("Mapped customer:", mapped_customer)
 
 #         print("\nFetching products...")
-#         products = await connector.Workspace_products(token, shop)
+#         products = await connector.fetch_products(token, shop)
 #         print(f"Fetched {len(products)} products.")
 #         if products:
 #             print("First product data:", products[0])
@@ -355,7 +355,7 @@ class ShopifyConnector(EcommercePlatformConnector):
 #             print("Mapped product:", mapped_product)
 
 #         print("\nFetching orders...")
-#         orders = await connector.Workspace_orders(token, shop)
+#         orders = await connector.fetch_orders(token, shop)
 #         print(f"Fetched {len(orders)} orders.")
 #         if orders:
 #             print("First order data:", orders[0])

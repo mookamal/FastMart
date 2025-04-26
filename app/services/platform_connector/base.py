@@ -29,7 +29,7 @@ class EcommercePlatformConnector(ABC):
         pass
     
     @abstractmethod
-    async def Workspace_orders(
+    async def fetch_orders(
         self, 
         access_token: str, 
         shop_domain: str, 
@@ -40,7 +40,7 @@ class EcommercePlatformConnector(ABC):
         pass
     
     @abstractmethod
-    async def Workspace_products(
+    async def fetch_products(
         self, 
         access_token: str, 
         shop_domain: str, 
@@ -51,7 +51,7 @@ class EcommercePlatformConnector(ABC):
         pass
     
     @abstractmethod
-    async def Workspace_customers(
+    async def fetch_customers(
         self, 
         access_token: str, 
         shop_domain: str, 
