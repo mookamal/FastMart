@@ -114,7 +114,7 @@ async def initial_sync_store(self, store_id: int):
         # 4. Fetch and Process Data
         # --- Products ---
         logger.info(f"Fetching products for store {store_id}...")
-        async for products_batch in connector.Workspace_products(access_token=store.access_token, shop_domain=store.shop_domain):
+        async for products_batch in connector.fetch_products(access_token=store.access_token, shop_domain=store.shop_domain):
             logger.info(f"Processing batch of {len(products_batch)} products...")
             for product_data_raw in products_batch:
                 try:
@@ -127,7 +127,7 @@ async def initial_sync_store(self, store_id: int):
 
         # --- Customers ---
         logger.info(f"Fetching customers for store {store_id}...")
-        async for customers_batch in connector.Workspace_customers(access_token=store.access_token, shop_domain=store.shop_domain):
+        async for customers_batch in connector.fetch_customers(access_token=store.access_token, shop_domain=store.shop_domain):
             logger.info(f"Processing batch of {len(customers_batch)} customers...")
             for customer_data_raw in customers_batch:
                 try:
@@ -140,7 +140,7 @@ async def initial_sync_store(self, store_id: int):
 
         # --- Orders ---
         logger.info(f"Fetching orders for store {store_id} from {sync_start_date} to {sync_end_date}...")
-        async for orders_batch in connector.Workspace_orders(access_token=store.access_token, shop_domain=store.shop_domain, since=sync_start_date): # Pass token, domain, and since
+        async for orders_batch in connector.fetch_orders(access_token=store.access_token, shop_domain=store.shop_domain, since=sync_start_date): # Pass token, domain, and since
             # Note: Shopify API usually uses 'since_id' or 'updated_at_min' for filtering, not created_at range directly for all resources.
             # Adjusting to use 'since' based on connector's _fetch_all_resources which uses 'updated_at_min'.
             # If created_at filtering is strictly needed, the connector method might need adjustment.
@@ -237,13 +237,15 @@ async def periodic_sync_store(self, store_id: int):
         # Note: Adapt the UPSERT logic from initial_sync_store
         # The connector methods need to accept the 'since' parameter
 
-        print(f"Fetching updated customers for store {store_id} since {since}")
-        updated_customers_data = await connector.get_customers(since=since)
-        # TODO: Implement UPSERT logic for customers
-        print(f"Fetched {len(updated_customers_data)} updated customers.")
-        # Example placeholder for UPSERT:
-        # for customer_data in updated_customers_data:
-        #     await upsert_customer(db, store_id, customer_data)
+        logger.info(f"Fetching updated customers for store {store_id} since {since}")
+        updated_customers_data = await connector.fetch_customers(access_token=store.access_token, shop_domain=store.shop_domain, since=since)
+        for customer_data_raw in updated_customers_data:
+            try:
+                customer_db_data = connector.map_customer_to_db_model(customer_data_raw,store.id)
+                await upsert_customer(db, customer_db_data)
+            except Exception as e:
+                logger.error(f"Error processing customer {customer_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
+        await db.commit()
 
         print(f"Fetching updated products for store {store_id} since {since}")
         updated_products_data = await connector.get_products(since=since)
