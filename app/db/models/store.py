@@ -1,8 +1,9 @@
 import uuid
 from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, hybrid_property
 from app.db.base import Base
+from app.core.security import encrypt_token, decrypt_token
 
 class Store(Base):
     __tablename__ = "stores"
@@ -11,7 +12,7 @@ class Store(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     platform = Column(String(50), nullable=False, default="shopify", index=True)
     shop_domain = Column(String(255), nullable=False)
-    access_token = Column(Text, nullable=False)
+    _access_token = Column('access_token', Text, nullable=False)
     scope = Column(Text, nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     last_sync_at = Column(DateTime(timezone=True), nullable=True)
@@ -23,4 +24,23 @@ class Store(Base):
     __table_args__ = (
         # Unique constraint for user_id, shop_domain, and platform
         {"sqlite_autoincrement": True},
-    ) 
+    )
+
+    @hybrid_property
+    def access_token(self) -> str:
+        """
+        Decrypt and return the access token.
+        Returns empty string if decryption fails.
+        """
+        decrypted = decrypt_token(self._access_token)
+        return decrypted if decrypted is not None else ""
+
+    @access_token.setter
+    def access_token(self, token: str) -> None:
+        """
+        Encrypt and store the access token.
+        """
+        if token is None:
+            self._access_token = ""
+        else:
+            self._access_token = encrypt_token(token) 
