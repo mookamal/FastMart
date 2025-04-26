@@ -216,13 +216,6 @@ async def periodic_sync_store(self, store_id: int):
              return
 
         connector = get_connector(store.platform)
-        api_credentials = {
-            'shop_url': store.shop_url,
-            'api_key': store.api_key,
-            'password': store.api_password,
-            'api_version': store.api_version
-        }
-        connector.connect(**api_credentials)
 
         # Determine the 'since' timestamp for fetching updates
         since = None
