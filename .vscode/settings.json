@@ -4,6 +4,9 @@
         "dotenv",
         "Ecommerce",
         "onupdate",
-        "selectinload"
+        "selectinload",
+        "sessionmaker",
+        "upserted",
+        "upserting"
     ]
 }

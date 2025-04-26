@@ -14,12 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.database import get_db
-from app.models.store import Store
-from app.models.customer import Customer
-from app.models.product import Product
-from app.models.order import Order
-from app.services.platform_connector import get_connector
-from .celery_app import celery_app
 
 logger = logging.getLogger(__name__) 
 
