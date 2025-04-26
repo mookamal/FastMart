@@ -1,7 +1,8 @@
 import uuid
 from sqlalchemy import Column, String, DateTime, Boolean, Text, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, hybrid_property
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.hybrid import hybrid_property
 from app.db.base import Base
 from app.core.security import encrypt_token, decrypt_token
 
@@ -20,6 +21,9 @@ class Store(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="stores")
+    products = relationship("Product", back_populates="store", cascade="all, delete-orphan")
+    customers = relationship("Customer", back_populates="store", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="store", cascade="all, delete-orphan")
 
     __table_args__ = (
         # Unique constraint for user_id, shop_domain, and platform
@@ -43,4 +47,4 @@ class Store(Base):
         if token is None:
             self._access_token = ""
         else:
-            self._access_token = encrypt_token(token) 
+            self._access_token = encrypt_token(token)
