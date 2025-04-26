@@ -1,19 +1,13 @@
 import logging
-from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.dialects.postgresql import insert
-
 from app.tasks.celery_app import celery_app
-from app.db.base import SessionLocal
 from app.db.models import Store, Product, Customer, Order, LineItem
 from app.services.platform_connector import get_connector
-
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
 
-from app.core.database import get_db
+from app.db.base import get_db
 
 logger = logging.getLogger(__name__) 
 
@@ -94,7 +88,7 @@ async def upsert_order(db: AsyncSession, order_data: dict):
 async def initial_sync_store(self, store_id: int):
     """Celery task to perform initial data synchronization for a store."""
     logger.info(f"Starting initial sync for store_id: {store_id}")
-    db: AsyncSession = SessionLocal()
+    db: AsyncSession = await anext(get_db())
     try:
         # 1. Fetch Store
         result = await db.execute(select(Store).where(Store.id == store_id))
