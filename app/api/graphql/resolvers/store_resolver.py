@@ -4,21 +4,24 @@ from uuid import UUID
 from strawberry.types import Info
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from fastapi import Depends
 
 from app.db.models.store import Store as StoreModel
 from app.db.models.product import Product as ProductModel
 from app.db.models.customer import Customer as CustomerModel
 from app.db.models.order import Order as OrderModel
 from app.api.graphql.schema import Store, Product, Customer, Order
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, CurrentUser
 
 async def resolve_store(info: Info, id: str) -> Store:
     """Resolver for the store query that returns a specific store by ID."""
     context = info.context
     db: AsyncSession = context["db"]
     
-    # Get the current user from the request context
-    current_user = await get_current_user(context["request"])
+    # Get the current user from the request context using JWT authentication
+    current_user = await get_current_user(context["request"], db)
+    if not current_user:
+        raise ValueError("Authentication required")
     
     # Query the database for the store
     store_model = await db.get(StoreModel, UUID(id))

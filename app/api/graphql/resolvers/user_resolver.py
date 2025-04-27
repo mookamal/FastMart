@@ -4,22 +4,23 @@ from uuid import UUID
 from strawberry.types import Info
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from fastapi import Depends
 
 from app.db.models.user import User as UserModel
 from app.db.models.store import Store as StoreModel
 from app.api.graphql.schema import User, Store
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, CurrentUser
 
 async def resolve_me(info: Info) -> User:
     """Resolver for the me query that returns the authenticated user."""
     # Get the current user from the request context
-    # This will be implemented with proper authentication later
     context = info.context
     db: AsyncSession = context["db"]
     
-    # For now, we'll use a placeholder implementation
-    # In a real implementation, we would get the user ID from the authentication token
-    current_user = await get_current_user(context["request"],db)
+    # Get the authenticated user using the JWT token from the request header
+    current_user = await get_current_user(context["request"], db)
+    if not current_user:
+        raise ValueError("Authentication required")
     
     # Query the database for the user
     user_model = await db.get(UserModel, current_user.id)
