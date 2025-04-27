@@ -199,20 +199,20 @@ async def initial_sync_store(self, store_id: int):
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 async def periodic_sync_store(self, store_id: int):
     """Periodically syncs data for a specific store since the last sync."""
-    print(f"Starting periodic sync for store_id: {store_id}")
+    logger.info(f"Starting periodic sync for store_id: {store_id}")
     db: AsyncSession = await anext(get_db())
     try:
         result = await db.execute(select(Store).where(Store.id == store_id))
         store = result.scalars().first()
 
         if not store:
-            print(f"Store with id {store_id} not found.")
+            logger.info(f"Store with id {store_id} not found.")
             return
         if not store.is_active:
-            print(f"Store {store.name} (id: {store_id}) is inactive. Skipping periodic sync.")
+            logger.info(f"Store {store.name} (id: {store_id}) is inactive. Skipping periodic sync.")
             return
         if not store.platform:
-             print(f"Store {store.name} (id: {store_id}) has no platform defined. Skipping sync.")
+             logger.info(f"Store {store.name} (id: {store_id}) has no platform defined. Skipping sync.")
              return
 
         connector = get_connector(store.platform)
@@ -226,11 +226,11 @@ async def periodic_sync_store(self, store_id: int):
             if store.last_sync_at.tzinfo is None:
                  # Assuming last_sync_at was stored as naive UTC
                  since = timezone.utc.localize(since) 
-            print(f"Syncing store {store.name} (id: {store_id}) since {since.isoformat()}")
+            logger.info(f"Syncing store {store.name} (id: {store_id}) since {since.isoformat()}")
         else:
             # If never synced, maybe trigger initial sync or log a warning?
             # For now, we'll just log and potentially fetch everything (since=None)
-            print(f"Store {store.name} (id: {store_id}) has no last_sync_at. Performing full fetch for periodic sync.")
+            logger.info(f"Store {store.name} (id: {store_id}) has no last_sync_at. Performing full fetch for periodic sync.")
             # Alternatively, could call initial_sync_store.delay(store_id) and return
 
         # --- Fetch Updated Data --- 
@@ -247,18 +247,18 @@ async def periodic_sync_store(self, store_id: int):
                 logger.error(f"Error processing customer {customer_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
         await db.commit()
 
-        print(f"Fetching updated products for store {store_id} since {since}")
+        logger.info(f"Fetching updated products for store {store_id} since {since}")
         updated_products_data = await connector.get_products(since=since)
         # TODO: Implement UPSERT logic for products
-        print(f"Fetched {len(updated_products_data)} updated products.")
+        logger.info(f"Fetched {len(updated_products_data)} updated products.")
         # Example placeholder for UPSERT:
         # for product_data in updated_products_data:
         #     await upsert_product(db, store_id, product_data)
 
-        print(f"Fetching updated orders for store {store_id} since {since}")
+        logger.info(f"Fetching updated orders for store {store_id} since {since}")
         updated_orders_data = await connector.get_orders(since=since)
         # TODO: Implement UPSERT logic for orders and relationships
-        print(f"Fetched {len(updated_orders_data)} updated orders.")
+        logger.info(f"Fetched {len(updated_orders_data)} updated orders.")
         # Example placeholder for UPSERT:
         # for order_data in updated_orders_data:
         #     await upsert_order(db, store_id, order_data)
@@ -267,11 +267,11 @@ async def periodic_sync_store(self, store_id: int):
         store.last_sync_at = datetime.now(timezone.utc) # Use timezone-aware datetime
         db.add(store)
         await db.commit()
-        print(f"Successfully completed periodic sync for store_id: {store_id}")
+        logger.info(f"Successfully completed periodic sync for store_id: {store_id}")
 
     except Exception as e:
         await db.rollback()
-        print(f"Error during periodic sync for store_id {store_id}: {e}")
+        logger.info(f"Error during periodic sync for store_id {store_id}: {e}")
         # Retry the task using Celery's built-in mechanism
         self.retry(exc=e)
     finally:
@@ -282,19 +282,19 @@ async def periodic_sync_store(self, store_id: int):
 @celery_app.task
 async def schedule_periodic_syncs():
     """Fetches all active stores and schedules periodic_sync_store for each."""
-    print("Running scheduler task: schedule_periodic_syncs")
+    logger.info("Running scheduler task: schedule_periodic_syncs")
     db: AsyncSession = await anext(get_db())
     try:
         result = await db.execute(select(Store).where(Store.is_active == True))
         active_stores = result.scalars().all()
         
-        print(f"Found {len(active_stores)} active stores to schedule sync for.")
+        logger.info(f"Found {len(active_stores)} active stores to schedule sync for.")
         for store in active_stores:
-            print(f"Scheduling periodic sync for store: {store.name} (id: {store.id})")
+            logger.info(f"Scheduling periodic sync for store: {store.name} (id: {store.id})")
             periodic_sync_store.delay(store.id)
             
     except Exception as e:
-        print(f"Error in scheduler task: {e}")
+        logger.info(f"Error in scheduler task: {e}")
         # Consider logging this error more formally
     finally:
         await db.close()
