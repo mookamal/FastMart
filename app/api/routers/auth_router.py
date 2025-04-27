@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Form,Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 class EmailPasswordForm(OAuth2PasswordRequestForm):
@@ -59,18 +59,19 @@ async def register_user(
 
 @router.get("/auth/shopify/callback", response_model=Dict) # TODO: Define a proper response model later
 async def handle_shopify_callback(
-    code: str = Query(...),
-    shop: str = Query(...),
-    # state: str = Query(...), # Optional: For associating with user session/request
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """Handles the redirect callback from Shopify after OAuth authorization."""
     try:
+        params = dict(request.query_params)
+        code = params.get('code')
+        shop = params.get('shop')
         # 1. Get the Shopify connector
         connector = get_connector('shopify')
 
         # 2. Exchange the code for an access token
-        token_data = await connector.exchange_code_for_token(code=code, shop_domain=shop)
+        token_data = await connector.exchange_code_for_token(params)
         access_token = token_data.get('access_token')
         scope = token_data.get('scope')
 
@@ -82,7 +83,7 @@ async def handle_shopify_callback(
 
         # 4. Associate with user (Placeholder - needs implementation)
         # TODO: Replace with actual user ID retrieval (e.g., from JWT token or state)
-        user_id = uuid.uuid4() # Placeholder UUID
+        user_id = "1dc93b23-4bb7-429a-8b1e-7ee25f82b389" # Placeholder UUID
 
         # 5. Create or update the store record in the database
         store_data = StoreCreate(

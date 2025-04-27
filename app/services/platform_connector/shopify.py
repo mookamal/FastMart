@@ -54,7 +54,7 @@ class ShopifyConnector(EcommercePlatformConnector):
     async def get_platform_name(self) -> str:
         return "shopify"
 
-    async def exchange_code_for_token(self, code: str, shop_domain: str) -> Dict:
+    async def exchange_code_for_token(self, params: dict) -> Dict:
         """
         Exchange authorization code for access token using Shopify OAuth.
 
@@ -77,11 +77,10 @@ class ShopifyConnector(EcommercePlatformConnector):
         try:
             # Initialize Shopify session
             shopify.Session.setup(api_key=api_key, secret=api_secret)
-            session = shopify.Session(shop_domain, self.API_VERSION)
+            session = shopify.Session(params.get("shop"), self.API_VERSION)
 
             # Exchange code for access token
-            # Note: The library might require scopes to be passed here if not default
-            access_token = session.request_token(code)
+            access_token = session.request_token(params)
 
             # It's good practice to fetch the shop details to confirm connection
             # shopify.ShopifyResource.activate_session(session)
