@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/analytics_db")
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "secret_key")
+    ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     
     class Config:
         case_sensitive = True

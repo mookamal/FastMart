@@ -2,11 +2,13 @@ from fastapi import FastAPI
 import uvicorn
 
 from app.api.routers import auth_router
+from app.api.graphql.router import graphql_router
 
 app = FastAPI(title="Analytic Project API")
 
 # Include routers
 app.include_router(auth_router.router, prefix="/api/v1", tags=["auth"])
+app.include_router(graphql_router, prefix="/graphql", tags=["graphql"])
 
 @app.get("/", tags=["Root"])
 async def read_root():

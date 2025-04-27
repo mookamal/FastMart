@@ -10,4 +10,4 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 celery==5.3.6
 redis==5.0.1
-ShopifyAPI==12.3.0 
+ShopifyAPI==12.3.0
