@@ -6,10 +6,9 @@ import uuid
 from decimal import Decimal
 import shopify
 from dotenv import load_dotenv
-from shopify.resources.resource import ShopifyResource
+from shopify import ShopifyResource
 from shopify.collection import PaginatedCollection
 from shopify.exceptions import ShopifyError, SessionNotActivatedError
-
 from .base import EcommercePlatformConnector
 from app.core.security import decrypt_token # Assuming security functions are here
 
