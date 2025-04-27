@@ -19,7 +19,7 @@ async def resolve_me(info: Info) -> User:
     
     # For now, we'll use a placeholder implementation
     # In a real implementation, we would get the user ID from the authentication token
-    current_user = await get_current_user(context["request"])
+    current_user = await get_current_user(context["request"],db)
     
     # Query the database for the user
     user_model = await db.get(UserModel, current_user.id)

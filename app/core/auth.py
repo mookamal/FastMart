@@ -21,7 +21,7 @@ class CurrentUser(BaseModel):
     id: UUID
     email: str
 
-async def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> CurrentUser:
+async def get_current_user(request: Request, db: AsyncSession = Depends(get_db)) -> CurrentUser:
     """
     Validate the access token and return the current user.
     """
@@ -30,6 +30,12 @@ async def get_current_user(request: Request, token: str = Depends(oauth2_scheme)
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    
+    # Extract token from Authorization header
+    auth_header = request.headers.get("authorization")
+    if not auth_header or not auth_header.lower().startswith("bearer "):
+        raise credentials_exception
+    token = auth_header.split(" ", 1)[1]
     
     try:
         # Decode the JWT token
