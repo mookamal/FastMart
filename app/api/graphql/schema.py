@@ -1,6 +1,7 @@
 import decimal
 from datetime import datetime, date
 from typing import List, Optional
+from uuid import UUID
 
 import strawberry
 from strawberry.scalars import ID
@@ -115,5 +116,36 @@ class Query:
         from app.api.graphql.resolvers.store_resolver import resolve_store
         return await resolve_store(info, id)
 
+# Define root Mutation type
+@strawberry.type
+class Mutation:
+    @strawberry.mutation
+    async def connect_shopify_store(
+        self, 
+        info: Info, 
+        authorization_code: str, 
+        shop_domain: str
+    ) -> Store:
+        from app.api.graphql.resolvers.mutation_resolver import resolve_connect_shopify_store
+        return await resolve_connect_shopify_store(info, authorization_code, shop_domain)
+    
+    @strawberry.mutation
+    async def disconnect_store(
+        self, 
+        info: Info, 
+        store_id: ID
+    ) -> bool:
+        from app.api.graphql.resolvers.mutation_resolver import resolve_disconnect_store
+        return await resolve_disconnect_store(info, store_id)
+    
+    @strawberry.mutation
+    async def trigger_store_sync(
+        self, 
+        info: Info, 
+        store_id: ID
+    ) -> bool:
+        from app.api.graphql.resolvers.mutation_resolver import resolve_trigger_store_sync
+        return await resolve_trigger_store_sync(info, store_id)
+
 # Create schema
-schema = strawberry.Schema(query=Query)
+schema = strawberry.Schema(query=Query, mutation=Mutation)
