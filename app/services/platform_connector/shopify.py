@@ -8,7 +8,7 @@ import shopify
 from dotenv import load_dotenv
 from shopify import ShopifyResource
 from shopify.collection import PaginatedCollection
-from shopify.exceptions import ShopifyError, SessionNotActivatedError
+
 from .base import EcommercePlatformConnector
 from app.core.security import decrypt_token # Assuming security functions are here
 
@@ -23,13 +23,13 @@ def retry_on_rate_limit(max_retries=3, delay=5):
             while retries < max_retries:
                 try:
                     return await func(*args, **kwargs)
-                except ShopifyError as e:
+                except ConnectionError as e:
                     # Check if it's a rate limit error (status code 429)
                     # The shopify library might not expose status code directly in ShopifyError
                     # We might need to rely on error message content or assume certain errors are rate limits
                     # For simplicity, we'll retry on any ShopifyError for now, but refine if possible.
                     # A more robust check would inspect e.response.code if available.
-                    if "exceeded call limit" in str(e).lower() or (hasattr(e, 'response') and e.response and e.response.code == 429):
+                    if "exceeded call limit" in str(e).lower() or isinstance(e, ConnectionError):
                         retries += 1
                         if retries >= max_retries:
                             raise Exception(f"Shopify API rate limit exceeded after {max_retries} retries: {e}")
@@ -92,7 +92,7 @@ class ShopifyConnector(EcommercePlatformConnector):
                 'access_token': access_token,
                 'scope': session.scope # Assuming scope is available on the session object
             }
-        except ShopifyError as e:
+        except ConnectionError as e:
             raise Exception(f"Failed to exchange code for token (Shopify API Error): {str(e)}")
         except Exception as e:
             # Catch other potential errors (network issues, etc.)
@@ -110,7 +110,7 @@ class ShopifyConnector(EcommercePlatformConnector):
             shopify.ShopifyResource.activate_session(session)
             # print(f"Shopify session activated for {shop_domain}") # Debugging
             return shopify
-        except SessionNotActivatedError as e:
+        except ValueError as e:
              raise Exception(f"Failed to activate Shopify session (maybe invalid token?): {str(e)}")
         except Exception as e:
             raise Exception(f"Failed to initialize Shopify client: {str(e)}")
@@ -139,7 +139,7 @@ class ShopifyConnector(EcommercePlatformConnector):
             # Fetch the next page
             try:
                 resources = resources.next_page()
-            except ShopifyError as e:
+            except ConnectionError as e:
                  # Handle potential errors during pagination itself (e.g., token expired mid-sync)
                  print(f"Error fetching next page: {e}")
                  # Depending on the error, might want to break or retry
