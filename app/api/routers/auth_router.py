@@ -1,16 +1,61 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Dict
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Form
+from fastapi.security import OAuth2PasswordRequestForm
+
+class EmailPasswordForm(OAuth2PasswordRequestForm):
+    def __init__(
+        self,
+        email: str = Form(...),
+        password: str = Form(...),
+    ):
+        super().__init__(username=email, password=password)
+
+from typing import Dict, Any
 import uuid
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.platform_connector import get_connector
 from app.core.security import encrypt_token
-# TODO: Import database session and store CRUD operations
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.base import get_db
 from app.crud.store import create_or_update_store
 from app.schemas.store import StoreCreate, Store
+from app.services.auth_service import authenticate_user, create_user, create_user_token
 
 router = APIRouter()
+
+@router.post("/auth/token", response_model=Dict[str, Any])
+async def login_for_access_token(
+    form_data: EmailPasswordForm = Depends(),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get an access token for future authenticated requests.
+    """
+    # NOTE: username here is email
+    user = await authenticate_user(form_data.username, form_data.password, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return await create_user_token(user)
+
+@router.post("/auth/register", response_model=Dict[str, Any])
+async def register_user(
+    email: str = Form(...),
+    password: str = Form(...),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Register a new user.
+    """
+    user = await create_user(email, password, db)
+    return {
+        "id": user.id,
+        "email": user.email,
+        "message": "User registered successfully"
+    }
 
 @router.get("/auth/shopify/callback", response_model=Dict) # TODO: Define a proper response model later
 async def handle_shopify_callback(

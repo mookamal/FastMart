@@ -1,8 +1,14 @@
 import os
-from typing import Optional
+from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from cryptography.fernet import Fernet
 from cryptography.fernet import InvalidToken
+from jose import jwt, JWTError
+
+from app.core.config import get_settings
+
+settings = get_settings()
 
 # Password hashing configuration
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -61,4 +67,31 @@ def decrypt_token(encrypted_token: str) -> Optional[str]:
     except InvalidToken:
         return None
     except Exception as e:
-        raise ValueError(f"Error decrypting token: {str(e)}") 
+        raise ValueError(f"Error decrypting token: {str(e)}")
+
+def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Create a JWT access token with the given data and expiration time.
+    """
+    to_encode = data.copy()
+    
+    # Get expiration time from settings or use default
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30)))
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
+
+def verify_token(token: str) -> Dict[str, Any]:
+    """
+    Verify and decode a JWT token.
+    Returns the decoded token payload or raises an exception if invalid.
+    """
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return payload
+    except JWTError as e:
+        raise ValueError(f"Invalid token: {str(e)}") 
