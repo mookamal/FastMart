@@ -35,7 +35,21 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
     auth_header = request.headers.get("authorization")
     if not auth_header or not auth_header.lower().startswith("bearer "):
         raise credentials_exception
-    token = auth_header.split(" ", 1)[1]
+    token_parts = auth_header.split(" ", 1)
+    if len(token_parts) != 2:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = token_parts[1]
+    # Validate token structure before decoding
+    if len(token.split('.')) != 3:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token format",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     try:
         # Decode the JWT token
@@ -46,8 +60,12 @@ async def get_current_user(request: Request, db: AsyncSession = Depends(get_db))
         if user_id is None:
             raise credentials_exception
         token_data = TokenData(user_id=UUID(user_id))
-    except JWTError:
-        raise credentials_exception
+    except (JWTError, UnicodeDecodeError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token format: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
     # Get the user from the database
     stmt = select(UserModel).where(UserModel.id == token_data.user_id)

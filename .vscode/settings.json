@@ -3,6 +3,7 @@
         "analitc",
         "dotenv",
         "Ecommerce",
+        "fernet",
         "graphiql",
         "myshop",
         "myshopify",
