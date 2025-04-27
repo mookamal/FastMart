@@ -6,7 +6,7 @@ from app.services.platform_connector import get_connector
 from app.core.security import encrypt_token
 # TODO: Import database session and store CRUD operations
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.session import get_db
+from app.db.base import get_db
 from app.crud.store import create_or_update_store
 from app.schemas.store import StoreCreate, Store
 
