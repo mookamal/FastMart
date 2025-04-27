@@ -5,7 +5,9 @@ from passlib.context import CryptContext
 from cryptography.fernet import Fernet
 from cryptography.fernet import InvalidToken
 from jose import jwt, JWTError
-
+import hashlib
+import hmac
+from urllib.parse import urlencode
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -95,3 +97,21 @@ def verify_token(token: str) -> Dict[str, Any]:
         return payload
     except JWTError as e:
         raise ValueError(f"Invalid token: {str(e)}") 
+
+def verify_hmac(params: dict, secret: str) -> bool:
+    """
+    Verify the HMAC from Shopify OAuth callback.
+    """
+    params = params.copy()
+    hmac_received = params.pop('hmac', None)
+
+    sorted_params = sorted((k, v) for k, v in params.items())
+    message = urlencode(sorted_params)
+
+    computed_hmac = hmac.new(
+        secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+
+    return hmac.compare_digest(computed_hmac, hmac_received)

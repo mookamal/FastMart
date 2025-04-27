@@ -65,7 +65,6 @@ async def handle_shopify_callback(
     """Handles the redirect callback from Shopify after OAuth authorization."""
     try:
         params = dict(request.query_params)
-        code = params.get('code')
         shop = params.get('shop')
         # 1. Get the Shopify connector
         connector = get_connector('shopify')

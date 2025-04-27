@@ -2,7 +2,6 @@ import os
 import time
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone
-import uuid
 from decimal import Decimal
 import shopify
 from dotenv import load_dotenv
@@ -10,8 +9,10 @@ from shopify import ShopifyResource
 from shopify.collection import PaginatedCollection
 
 from .base import EcommercePlatformConnector
-from app.core.security import decrypt_token # Assuming security functions are here
+from app.core.security import decrypt_token,verify_hmac# Assuming security functions are here
+import logging
 
+logging.basicConfig(level=logging.DEBUG)
 # Load environment variables
 load_dotenv()
 
@@ -49,7 +50,7 @@ def retry_on_rate_limit(max_retries=3, delay=5):
 class ShopifyConnector(EcommercePlatformConnector):
     """Shopify platform connector implementation."""
 
-    API_VERSION = '2024-04' # Use a recent, stable API version
+    API_VERSION = '2025-04' # Use a recent, stable API version
 
     async def get_platform_name(self) -> str:
         return "shopify"
@@ -73,6 +74,8 @@ class ShopifyConnector(EcommercePlatformConnector):
 
         if not api_key or not api_secret:
             raise Exception("Shopify API credentials not configured")
+        if not verify_hmac(params, api_secret):
+            raise Exception("HMAC verification failed")
 
         try:
             # Initialize Shopify session
