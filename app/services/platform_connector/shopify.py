@@ -337,7 +337,7 @@ class ShopifyConnector(EcommercePlatformConnector):
         shopify.Session.setup(api_key=api_key, secret=secret)
         session = shopify.Session(shop_url, self.API_VERSION)
 
-        scopes = ['read_products', 'read_orders']
+        scopes = ['read_products', 'read_orders','read_customers']
         # Create a secure state parameter
         if user_id:
             state = create_secure_state(str(user_id))
