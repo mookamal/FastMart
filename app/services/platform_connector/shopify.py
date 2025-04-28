@@ -9,7 +9,7 @@ from shopify import ShopifyResource
 from shopify.collection import PaginatedCollection
 
 from .base import EcommercePlatformConnector
-from app.core.security import decrypt_token,verify_hmac# Assuming security functions are here
+from app.core.security import decrypt_token,create_secure_state
 import logging
 
 logging.basicConfig(level=logging.DEBUG)
@@ -74,8 +74,6 @@ class ShopifyConnector(EcommercePlatformConnector):
 
         if not api_key or not api_secret:
             raise Exception("Shopify API credentials not configured")
-        if not verify_hmac(params, api_secret):
-            raise Exception("HMAC verification failed")
 
         try:
             # Initialize Shopify session
@@ -325,7 +323,7 @@ class ShopifyConnector(EcommercePlatformConnector):
             # Add other relevant fields like 'vendor' if needed from line item
          }
     # generate auth_url for shopify
-    async def generate_auth_url(self, shop_domain: str) -> str:
+    async def generate_auth_url(self, shop_domain: str,user_id: str = None) -> str:
         """Generate the URL for the Shopify OAuth flow."""
         api_key = os.getenv('SHOPIFY_API_KEY')
         secret = os.getenv('SHOPIFY_API_SECRET')
@@ -339,7 +337,12 @@ class ShopifyConnector(EcommercePlatformConnector):
         session = shopify.Session(shop_url, self.API_VERSION)
 
         scopes = ['read_products', 'read_orders']
-        state  = "test_state"
+        # Create a secure state parameter
+        if user_id:
+            state = create_secure_state(str(user_id))
+        else:
+            # Fallback for testing
+            state = "test_state"
         redirect_uri  = "http://localhost:8000/api/v1/auth/shopify/callback"
         # Generate the URL
         auth_url = session.create_permission_url(scopes,redirect_uri, state)

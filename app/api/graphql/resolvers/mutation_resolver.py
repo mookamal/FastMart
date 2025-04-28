@@ -151,10 +151,16 @@ async def resolve_gen_link_shopify(info: Info, shop_domain: str) -> str:
     Resolver for the genLinkShopify mutation.
     This generates a link to the Shopify app installation page.
     """
+    # Get context from the GraphQL request
+    context = info.context
+    db: AsyncSession = context["db"]
+    
+    # Get the current authenticated user
+    current_user = await get_current_user(context["request"], db)
     # Get the Shopify connector
     connector = get_connector('shopify')
 
     # gen auth url
-    auth_url = await connector.generate_auth_url(shop_domain)
+    auth_url = await connector.generate_auth_url(shop_domain,current_user.id)
 
     return auth_url

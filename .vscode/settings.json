@@ -11,6 +11,7 @@
         "selectinload",
         "sessionmaker",
         "upserted",
-        "upserting"
+        "upserting",
+        "urandom"
     ]
 }

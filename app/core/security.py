@@ -7,6 +7,9 @@ from cryptography.fernet import InvalidToken
 from jose import jwt, JWTError
 import hashlib
 import hmac
+import time
+import json
+import base64
 from urllib.parse import urlencode
 from app.core.config import get_settings
 
@@ -109,20 +112,87 @@ def verify_token(token: str) -> Dict[str, Any]:
     except JWTError as e:
         raise ValueError(f"Invalid token: {str(e)}") 
 
-def verify_hmac(params: dict, secret: str) -> bool:
+def create_secure_state(user_id: str) -> str:
     """
-    Verify the HMAC from Shopify OAuth callback.
+    Create a secure state parameter with HMAC signature.
+    
+    Args:
+        user_id: The user ID to include in the state
+        secret_key: Secret key for HMAC signing
+        
+    Returns:
+        Encoded and signed state string
     """
-    params = params.copy()
-    hmac_received = params.pop('hmac', None)
-
-    sorted_params = sorted((k, v) for k, v in params.items())
-    message = urlencode(sorted_params)
-
-    computed_hmac = hmac.new(
-        secret.encode('utf-8'),
-        message.encode('utf-8'),
+    secret_key = settings.SECRET_KEY
+    # Create state payload
+    state_data = {
+        "user_id": user_id,
+        "timestamp": int(time.time()),
+        "nonce": os.urandom(8).hex()  # Add randomness
+    }
+    
+    # Convert to JSON
+    state_json = json.dumps(state_data)
+    
+    # Create HMAC signature
+    signature = hmac.new(
+        secret_key.encode(),
+        state_json.encode(),
         hashlib.sha256
     ).hexdigest()
+    
+    # Combine data and signature
+    combined = {
+        "data": state_data,
+        "signature": signature
+    }
+    
+    # Encode the final state
+    return base64.urlsafe_b64encode(json.dumps(combined).encode()).decode()
 
-    return hmac.compare_digest(computed_hmac, hmac_received)
+def verify_secure_state(state: str) -> dict:
+    """
+    Verify and decode a secure state parameter.
+    
+    Args:
+        state: The state parameter to verify
+        secret_key: Secret key for HMAC verification
+        
+    Returns:
+        The verified state data
+        
+    Raises:
+        ValueError: If state is invalid, tampered with, or expired
+    """
+    secret_key = settings.SECRET_KEY
+    try:
+        # Decode the state
+        decoded = json.loads(base64.urlsafe_b64decode(state.encode()).decode())
+        
+        # Extract data and signature
+        state_data = decoded.get("data")
+        received_signature = decoded.get("signature")
+        
+        if not state_data or not received_signature:
+            raise ValueError("Invalid state format")
+        
+        # Recreate the signature for verification
+        expected_signature = hmac.new(
+            secret_key.encode(),
+            json.dumps(state_data).encode(),
+            hashlib.sha256
+        ).hexdigest()
+        
+        # Verify signature
+        if not hmac.compare_digest(expected_signature, received_signature):
+            raise ValueError("State signature verification failed")
+        
+        # Verify timestamp (e.g., 15 minutes expiry)
+        current_time = int(time.time())
+        if current_time - state_data.get("timestamp", 0) > 900:  # 15 minutes
+            raise ValueError("State has expired")
+            
+        return state_data
+        
+    except Exception as e:
+        raise ValueError(f"Invalid state parameter: {str(e)}")

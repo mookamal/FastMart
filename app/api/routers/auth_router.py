@@ -14,7 +14,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.platform_connector import get_connector
-from app.core.security import encrypt_token
+from app.core.security import encrypt_token,verify_secure_state
 from app.db.base import get_db
 from app.crud.store import create_or_update_store
 from app.schemas.store import StoreCreate, Store
@@ -82,11 +82,16 @@ async def handle_shopify_callback(
 
         # 4. Associate with user (Placeholder - needs implementation)
         # TODO: Replace with actual user ID retrieval (e.g., from JWT token or state)
-        user_id = "1dc93b23-4bb7-429a-8b1e-7ee25f82b389" # Placeholder UUID
+        state = params.get('state')
+        state_data = verify_secure_state(state)
+        user_id = state_data.get('user_id')  # Retrieve user_id from state_data
+        if not user_id:
+            raise HTTPException(status_code=400, detail="User ID not found in state")
+        
 
         # 5. Create or update the store record in the database
         store_data = StoreCreate(
-            user_id=user_id,
+            user_id=uuid.UUID(user_id),
             platform="shopify",
             domain=shop,
             access_token=encrypted_token,
