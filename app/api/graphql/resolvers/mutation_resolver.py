@@ -137,7 +137,7 @@ async def resolve_trigger_store_sync(info: Info, store_id: str) -> bool:
             raise ValueError("Cannot sync an inactive store")
         
         # Trigger the sync task
-        initial_sync_store.delay(str(store_model.id))
+        initial_sync_store.delay(store_model.id)
         
         return True
         

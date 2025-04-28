@@ -6,6 +6,7 @@ from app.db.models import Store, Product, Customer, Order, LineItem
 from app.services.platform_connector import get_connector
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
 
 from app.db.base import get_db
 
@@ -85,7 +86,7 @@ async def upsert_order(db: AsyncSession, order_data: dict):
 # --- Celery Task Definition ---
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60 * 5) # Retry after 5 minutes
-async def initial_sync_store(self, store_id: int):
+async def initial_sync_store(self, store_id: UUID):
     """Celery task to perform initial data synchronization for a store."""
     logger.info(f"Starting initial sync for store_id: {store_id}")
     db: AsyncSession = await anext(get_db())
