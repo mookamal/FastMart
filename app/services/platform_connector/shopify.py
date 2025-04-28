@@ -281,7 +281,7 @@ class ShopifyConnector(EcommercePlatformConnector):
             'platform_created_at': self._parse_datetime(platform_product_data.get('created_at')),
             'platform_updated_at': self._parse_datetime(platform_product_data.get('updated_at')),
             # Variants might need separate handling if storing variant-level details
-            'variants': platform_product_data.get('variants', []) # Include variants for potential line item mapping
+            # 'variants': platform_product_data.get('variants', []) # Include variants for potential line item mapping
         }
 
     async def map_customer_to_db_model(
