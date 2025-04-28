@@ -147,7 +147,7 @@ async def sync_store_logic(self, store_id: UUID):
             logger.info(f"Processing batch of {len(orders_batch)} orders...")
             for order_data_raw in orders_batch:
                 try:
-                    order_db_data = connector.map_order_to_db_model(order_data_raw)
+                    order_db_data = await connector.map_order_to_db_model(order_data_raw)
                     order_db_data['store_id'] = store.id
 
                     # Find associated customer_id
