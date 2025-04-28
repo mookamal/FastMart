@@ -62,9 +62,8 @@ async def upsert_order(db: AsyncSession, order_data: dict):
         # Or implement upsert logic for line items as well
         for item_data in line_items_data:
             item_data['order_id'] = order_id
-            item_data['store_id'] = order_data['store_id'] # Ensure store_id is present
             # Find product_id based on platform_product_id
-            product = await get_product_by_platform_id(db, item_data['store_id'], item_data.get('platform_product_id'))
+            product = await get_product_by_platform_id(db, order_data['store_id'], item_data.get('platform_product_id'))
             if product:
                 item_data['product_id'] = product.id
             else:
