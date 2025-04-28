@@ -113,30 +113,30 @@ async def sync_store_logic(self, store_id: UUID):
 
         # 4. Fetch and Process Data
         # --- Products ---
-        logger.info(f"Fetching products for store {store_id}...")
-        async for products_batch in connector.fetch_products(access_token=store.access_token, shop_domain=store.shop_domain):
-            logger.info(f"Processing batch of {len(products_batch)} products...")
-            for product_data_raw in products_batch:
-                try:
-                    product_db_data = await connector.map_product_to_db_model(product_data_raw)
-                    product_db_data['store_id'] = store.id
-                    await upsert_product(db, product_db_data)
-                except Exception as e:
-                    logger.error(f"Error processing product {product_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
-            await db.commit() # Commit after each batch
-
-        # # --- Customers ---
-        # logger.info(f"Fetching customers for store {store_id}...")
-        # async for customers_batch in connector.fetch_customers(access_token=store.access_token, shop_domain=store.shop_domain):
-        #     logger.info(f"Processing batch of {len(customers_batch)} customers...")
-        #     for customer_data_raw in customers_batch:
+        # logger.info(f"Fetching products for store {store_id}...")
+        # async for products_batch in connector.fetch_products(access_token=store.access_token, shop_domain=store.shop_domain):
+        #     logger.info(f"Processing batch of {len(products_batch)} products...")
+        #     for product_data_raw in products_batch:
         #         try:
-        #             customer_db_data = connector.map_customer_to_db_model(customer_data_raw)
-        #             customer_db_data['store_id'] = store.id
-        #             await upsert_customer(db, customer_db_data)
+        #             product_db_data = await connector.map_product_to_db_model(product_data_raw)
+        #             product_db_data['store_id'] = store.id
+        #             await upsert_product(db, product_db_data)
         #         except Exception as e:
-        #             logger.error(f"Error processing customer {customer_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
+        #             logger.error(f"Error processing product {product_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
         #     await db.commit() # Commit after each batch
+
+        # --- Customers ---
+        logger.info(f"Fetching customers for store {store_id}...")
+        async for customers_batch in connector.fetch_customers(access_token=store.access_token, shop_domain=store.shop_domain):
+            logger.info(f"Processing batch of {len(customers_batch)} customers...")
+            for customer_data_raw in customers_batch:
+                try:
+                    customer_db_data = await connector.map_customer_to_db_model(customer_data_raw)
+                    customer_db_data['store_id'] = store.id
+                    await upsert_customer(db, customer_db_data)
+                except Exception as e:
+                    logger.error(f"Error processing customer {customer_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
+            await db.commit() # Commit after each batch
 
         # # --- Orders ---
         # logger.info(f"Fetching orders for store {store_id} from {sync_start_date} to {sync_end_date}...")

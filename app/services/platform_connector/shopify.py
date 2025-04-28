@@ -203,7 +203,8 @@ class ShopifyConnector(EcommercePlatformConnector):
         access_token: str,
         shop_domain: str,
         since: Optional[datetime] = None,
-        limit: int = 50
+        limit: int = 50,
+        batch_size: int = 50
     ) -> List[Dict]:
         """Fetch customers from Shopify, handling pagination and rate limits."""
         client = await self.get_api_client(access_token, shop_domain)
@@ -213,7 +214,9 @@ class ShopifyConnector(EcommercePlatformConnector):
                 since=since,
                 limit=limit
             )
-            return customers_data
+            # Yield customers in batches
+            for i in range(0, len(customers_data), batch_size):
+                yield customers_data[i:i + batch_size]
         except Exception as e:
             print(f"Error fetching Shopify customers for {shop_domain}: {e}")
             raise e
