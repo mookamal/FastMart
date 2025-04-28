@@ -200,6 +200,8 @@ def initial_sync_store(self, store_id: UUID):
     """Celery task to perform initial data synchronization for a store."""
     logger.info(f"Starting initial sync for store_id: {store_id}")
     async_to_sync(sync_store_logic)(self,store_id)
+
+    
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 async def periodic_sync_store(self, store_id: int):
     """Periodically syncs data for a specific store since the last sync."""
