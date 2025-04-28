@@ -64,7 +64,18 @@ def decrypt_token(encrypted_token: str) -> Optional[str]:
     
     try:
         f = get_fernet()
-        decrypted_bytes = f.decrypt(encrypted_token.encode())
+        # Convert to string if it's not already a string
+        if hasattr(encrypted_token, 'decode'):
+            # It's bytes
+            token_str = encrypted_token.decode()
+        elif hasattr(encrypted_token, '__str__'):
+            # It's a SQLAlchemy attribute or other object
+            token_str = str(encrypted_token)
+        else:
+            token_str = encrypted_token
+            
+        # Now encode for decryption
+        decrypted_bytes = f.decrypt(token_str.encode())
         return decrypted_bytes.decode()
     except InvalidToken:
         return None
