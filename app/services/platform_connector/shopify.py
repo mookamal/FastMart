@@ -153,7 +153,8 @@ class ShopifyConnector(EcommercePlatformConnector):
         access_token: str,
         shop_domain: str,
         since: Optional[datetime] = None,
-        limit: int = 50 # Note: this limit is per page, _fetch_all_resources handles pagination
+        limit: int = 50, # Note: this limit is per page, _fetch_all_resources handles pagination
+        batch_size: int = 50
     ) -> List[Dict]:
         """Fetch orders from Shopify, handling pagination and rate limits."""
         client = await self.get_api_client(access_token, shop_domain)
@@ -165,7 +166,8 @@ class ShopifyConnector(EcommercePlatformConnector):
                 limit=limit,
                 status='any' # Fetch all orders regardless of status
             )
-            return orders_data
+            for i in range(0, len(orders_data), batch_size):
+                yield orders_data[i:i + batch_size]
         except Exception as e:
             print(f"Error fetching Shopify orders for {shop_domain}: {e}")
             # Depending on requirements, might return empty list or re-raise
