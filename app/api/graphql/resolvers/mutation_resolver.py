@@ -144,4 +144,17 @@ async def resolve_trigger_store_sync(info: Info, store_id: str) -> bool:
     except ValueError as e:
         raise ValueError(f"Failed to trigger store sync: {str(e)}")
     except Exception as e:
-        raise ValueError(f"An error occurred while triggering store sync: {str(e)}") 
+        raise ValueError(f"An error occurred while triggering store sync: {str(e)}")
+
+async def resolve_gen_link_shopify(info: Info, shop_domain: str) -> str:
+    """
+    Resolver for the genLinkShopify mutation.
+    This generates a link to the Shopify app installation page.
+    """
+    # Get the Shopify connector
+    connector = get_connector('shopify')
+
+    # gen auth url
+    auth_url = await connector.generate_auth_url(shop_domain)
+
+    return auth_url

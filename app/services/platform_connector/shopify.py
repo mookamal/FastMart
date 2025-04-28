@@ -325,51 +325,23 @@ class ShopifyConnector(EcommercePlatformConnector):
             'price': self._safe_decimal(platform_line_item_data.get('price')),
             # Add other relevant fields like 'vendor' if needed from line item
          }
+    # generate auth_url for shopify
+    async def generate_auth_url(self, shop_domain: str) -> str:
+        """Generate the URL for the Shopify OAuth flow."""
+        api_key = os.getenv('SHOPIFY_API_KEY')
+        secret = os.getenv('SHOPIFY_API_SECRET')
 
-# Example usage (for testing purposes, typically called from elsewhere)
-# async def main():
-#     load_dotenv()
-#     connector = ShopifyConnector()
-#     shop = 'your-shop-name.myshopify.com' # Replace with a real shop for testing
-#     token = os.getenv('SHOPIFY_TEST_ACCESS_TOKEN') # Needs a valid token
+        if not api_key or not secret:
+            raise Exception("Shopify API credentials not configured")
 
-#     if not token:
-#         print("Set SHOPIFY_TEST_ACCESS_TOKEN in .env for testing")
-#         return
+        shop_url = f"{shop_domain}.myshopify.com"
+        # Initialize the session
+        shopify.Session.setup(api_key=api_key, secret=secret)
+        session = shopify.Session(shop_url, self.API_VERSION)
 
-#     try:
-#         print("Fetching customers...")
-#         # customers = await connector.fetch_customers(token, shop, since=datetime(2023, 1, 1, tzinfo=timezone.utc))
-#         customers = await connector.fetch_customers(token, shop)
-#         print(f"Fetched {len(customers)} customers.")
-#         if customers:
-#             print("First customer data:", customers[0])
-#             mapped_customer = await connector.map_customer_to_db_model(customers[0])
-#             print("Mapped customer:", mapped_customer)
-
-#         print("\nFetching products...")
-#         products = await connector.fetch_products(token, shop)
-#         print(f"Fetched {len(products)} products.")
-#         if products:
-#             print("First product data:", products[0])
-#             mapped_product = await connector.map_product_to_db_model(products[0])
-#             print("Mapped product:", mapped_product)
-
-#         print("\nFetching orders...")
-#         orders = await connector.fetch_orders(token, shop)
-#         print(f"Fetched {len(orders)} orders.")
-#         if orders:
-#             print("First order data:", orders[0])
-#             mapped_order = await connector.map_order_to_db_model(orders[0])
-#             print("Mapped order:", mapped_order)
-#             if mapped_order.get('raw_line_items'):
-#                 mapped_line_item = await connector.map_line_item_to_db_model(mapped_order['raw_line_items'][0])
-#                 print("Mapped first line item:", mapped_line_item)
-
-
-#     except Exception as e:
-#         print(f"An error occurred: {e}")
-
-# if __name__ == "__main__":
-#     import asyncio
-#     asyncio.run(main())
+        scopes = ['read_products', 'read_orders']
+        state  = "test_state"
+        redirect_uri  = "http://localhost:8000/api/v1/auth/shopify/callback"
+        # Generate the URL
+        auth_url = session.create_permission_url(scopes,redirect_uri, state)
+        return auth_url
