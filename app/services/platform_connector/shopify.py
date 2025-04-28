@@ -269,7 +269,7 @@ class ShopifyConnector(EcommercePlatformConnector):
             # 'customer_id' needs to be looked up based on platform_customer_id
             'platform_customer_id': str(platform_order_data.get('customer', {}).get('id')) if platform_order_data.get('customer') else None,
             # Line items need separate mapping and linking
-            'raw_line_items': platform_order_data.get('line_items', [])
+            # 'raw_line_items': platform_order_data.get('line_items', [])
         }
 
     async def map_product_to_db_model(
