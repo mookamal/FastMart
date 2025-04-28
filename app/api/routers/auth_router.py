@@ -90,7 +90,7 @@ async def handle_shopify_callback(
             platform="shopify",
             domain=shop,
             access_token=encrypted_token,
-            scope=scope,
+            scope=str(scope),
             is_active=True
         )
         db_store = await create_or_update_store(db=db, store=store_data)
