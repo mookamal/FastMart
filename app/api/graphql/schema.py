@@ -115,6 +115,11 @@ class Query:
     async def store(self, info: Info, id: ID) -> Store:
         from app.api.graphql.resolvers.store_resolver import resolve_store
         return await resolve_store(info, id)
+    
+    @strawberry.field
+    async def user_stores(self, info: Info) -> List[Store]:
+        from app.api.graphql.resolvers.user_resolver import resolve_user_stores
+        return await resolve_user_stores(info)
 
 # Define root Mutation type
 @strawberry.type

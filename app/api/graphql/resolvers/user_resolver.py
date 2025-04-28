@@ -4,12 +4,11 @@ from uuid import UUID
 from strawberry.types import Info
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from fastapi import Depends
-
+from strawberry.scalars import ID
 from app.db.models.user import User as UserModel
 from app.db.models.store import Store as StoreModel
 from app.api.graphql.schema import User, Store
-from app.core.auth import get_current_user, CurrentUser
+from app.core.auth import get_current_user
 
 async def resolve_me(info: Info) -> User:
     """Resolver for the me query that returns the authenticated user."""
@@ -34,13 +33,14 @@ async def resolve_me(info: Info) -> User:
         created_at=user_model.created_at
     )
 
-async def resolve_user_stores(user: User, info: Info) -> List[Store]:
+async def resolve_user_stores(info: Info) -> List[Store]:
     """Resolver for the stores field on the User type."""
     context = info.context
     db: AsyncSession = context["db"]
-    
+    # get current user
+    current_user = await get_current_user(context["request"], db)
     # Query the database for the user's stores
-    stmt = select(StoreModel).where(StoreModel.user_id == UUID(user.id))
+    stmt = select(StoreModel).where(StoreModel.user_id == current_user.id)
     result = await db.execute(stmt)
     store_models = result.scalars().all()
     
