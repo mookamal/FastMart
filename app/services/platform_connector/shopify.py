@@ -104,8 +104,7 @@ class ShopifyConnector(EcommercePlatformConnector):
             raise ValueError("Invalid or missing access token after decryption.")
 
         try:
-            session = shopify.Session(shop_domain, self.API_VERSION)
-            session.token = decrypted_token
+            session = shopify.Session(shop_domain, decrypted_token)
             shopify.ShopifyResource.activate_session(session)
             # print(f"Shopify session activated for {shop_domain}") # Debugging
             return shopify
