@@ -113,17 +113,17 @@ async def sync_store_logic(self, store_id: UUID):
 
         # 4. Fetch and Process Data
         # --- Products ---
-        # logger.info(f"Fetching products for store {store_id}...")
-        # async for products_batch in connector.fetch_products(access_token=store.access_token, shop_domain=store.shop_domain):
-        #     logger.info(f"Processing batch of {len(products_batch)} products...")
-        #     for product_data_raw in products_batch:
-        #         try:
-        #             product_db_data = await connector.map_product_to_db_model(product_data_raw)
-        #             product_db_data['store_id'] = store.id
-        #             await upsert_product(db, product_db_data)
-        #         except Exception as e:
-        #             logger.error(f"Error processing product {product_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
-        #     await db.commit() # Commit after each batch
+        logger.info(f"Fetching products for store {store_id}...")
+        async for products_batch in connector.fetch_products(access_token=store.access_token, shop_domain=store.shop_domain):
+            logger.info(f"Processing batch of {len(products_batch)} products...")
+            for product_data_raw in products_batch:
+                try:
+                    product_db_data = await connector.map_product_to_db_model(product_data_raw)
+                    product_db_data['store_id'] = store.id
+                    await upsert_product(db, product_db_data)
+                except Exception as e:
+                    logger.error(f"Error processing product {product_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
+            await db.commit() # Commit after each batch
 
         # --- Customers ---
         # logger.info(f"Fetching customers for store {store_id}...")
@@ -139,41 +139,41 @@ async def sync_store_logic(self, store_id: UUID):
         #     await db.commit() # Commit after each batch
 
         # --- Orders ---
-        logger.info(f"Fetching orders for store {store_id} from {sync_start_date} to {sync_end_date}...")
-        async for orders_batch in connector.fetch_orders(access_token=store.access_token, shop_domain=store.shop_domain, since=sync_start_date): # Pass token, domain, and since
-            # Note: Shopify API usually uses 'since_id' or 'updated_at_min' for filtering, not created_at range directly for all resources.
-            # Adjusting to use 'since' based on connector's _fetch_all_resources which uses 'updated_at_min'.
-            # If created_at filtering is strictly needed, the connector method might need adjustment.
-            logger.info(f"Processing batch of {len(orders_batch)} orders...")
-            for order_data_raw in orders_batch:
-                try:
-                    order_db_data = await connector.map_order_to_db_model(order_data_raw)
-                    order_db_data['store_id'] = store.id
+        # logger.info(f"Fetching orders for store {store_id} from {sync_start_date} to {sync_end_date}...")
+        # async for orders_batch in connector.fetch_orders(access_token=store.access_token, shop_domain=store.shop_domain, since=sync_start_date): # Pass token, domain, and since
+        #     # Note: Shopify API usually uses 'since_id' or 'updated_at_min' for filtering, not created_at range directly for all resources.
+        #     # Adjusting to use 'since' based on connector's _fetch_all_resources which uses 'updated_at_min'.
+        #     # If created_at filtering is strictly needed, the connector method might need adjustment.
+        #     logger.info(f"Processing batch of {len(orders_batch)} orders...")
+        #     for order_data_raw in orders_batch:
+        #         try:
+        #             order_db_data = await connector.map_order_to_db_model(order_data_raw)
+        #             order_db_data['store_id'] = store.id
 
-                    # Find associated customer_id
-                    platform_customer_id = order_db_data.pop('platform_customer_id', None) # Get platform ID from mapped data
-                    customer = None
-                    if platform_customer_id:
-                        customer = await get_customer_by_platform_id(db, store.id, platform_customer_id)
+        #             # Find associated customer_id
+        #             platform_customer_id = order_db_data.pop('platform_customer_id', None) # Get platform ID from mapped data
+        #             customer = None
+        #             if platform_customer_id:
+        #                 customer = await get_customer_by_platform_id(db, store.id, platform_customer_id)
                     
-                    if customer:
-                        order_db_data['customer_id'] = customer.id
-                    else:
-                        order_db_data['customer_id'] = None # Or handle as needed if customer must exist
-                        logger.warning(f"Customer with platform ID {platform_customer_id} not found for store {store_id} while processing order {order_data_raw.get('id')}.")
+        #             if customer:
+        #                 order_db_data['customer_id'] = customer.id
+        #             else:
+        #                 order_db_data['customer_id'] = None # Or handle as needed if customer must exist
+        #                 logger.warning(f"Customer with platform ID {platform_customer_id} not found for store {store_id} while processing order {order_data_raw.get('id')}.")
 
-                    # Extract line items (assuming map_order_to_db_model includes them or they need separate mapping)
-                    # The placeholder upsert_order handles line items internally now
-                    line_items_raw = order_data_raw.get('line_items', [])
-                    mapped_line_items = [
-                        connector.map_line_item_to_db_model(item) for item in line_items_raw
-                    ]
-                    order_db_data['line_items'] = mapped_line_items # Pass mapped items to upsert
+        #             # Extract line items (assuming map_order_to_db_model includes them or they need separate mapping)
+        #             # The placeholder upsert_order handles line items internally now
+        #             line_items_raw = order_data_raw.get('line_items', [])
+        #             mapped_line_items = [
+        #                 connector.map_line_item_to_db_model(item) for item in line_items_raw
+        #             ]
+        #             order_db_data['line_items'] = mapped_line_items # Pass mapped items to upsert
 
-                    await upsert_order(db, order_db_data)
-                except Exception as e:
-                    logger.error(f"Error processing order {order_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
-            await db.commit() # Commit after each batch
+        #             await upsert_order(db, order_db_data)
+        #         except Exception as e:
+        #             logger.error(f"Error processing order {order_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
+        #     await db.commit() # Commit after each batch
 
         # 5. Update Last Sync Time
         store.last_sync_at = datetime.utcnow()
@@ -193,7 +193,7 @@ async def sync_store_logic(self, store_id: UUID):
             # Optionally, mark the store sync status as failed in the DB
             return f"Sync failed permanently for store {store_id}."
     finally:
-        await db.close()
+        pass
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60 * 5) # Retry after 5 minutes
 def initial_sync_store(self, store_id: UUID):
@@ -281,7 +281,7 @@ async def periodic_sync_store(self, store_id: int):
         # Retry the task using Celery's built-in mechanism
         self.retry(exc=e)
     finally:
-        await db.close()
+        pass
 
 # --- Scheduler Task --- 
 
@@ -303,4 +303,4 @@ async def schedule_periodic_syncs():
         logger.info(f"Error in scheduler task: {e}")
         # Consider logging this error more formally
     finally:
-        await db.close()
+        pass
