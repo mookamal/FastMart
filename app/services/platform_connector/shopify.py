@@ -104,9 +104,8 @@ class ShopifyConnector(EcommercePlatformConnector):
             raise ValueError("Invalid or missing access token after decryption.")
 
         try:
-            session = shopify.Session(shop_domain, decrypted_token)
+            session = shopify.Session(shop_domain,self.API_VERSION ,decrypted_token)
             shopify.ShopifyResource.activate_session(session)
-            # print(f"Shopify session activated for {shop_domain}") # Debugging
             return shopify
         except ValueError as e:
              raise Exception(f"Failed to activate Shopify session (maybe invalid token?): {str(e)}")
@@ -125,10 +124,8 @@ class ShopifyConnector(EcommercePlatformConnector):
         params.update(kwargs) # Add any extra specific params
 
         resources: PaginatedCollection = resource_class.find(**params)
-
         while True:
-            current_page_resources = resources.elements
-            for resource in current_page_resources:
+            for resource in resources:
                 all_resources_data.append(resource.to_dict())
 
             if not resources.has_next_page():
@@ -139,14 +136,14 @@ class ShopifyConnector(EcommercePlatformConnector):
                 resources = resources.next_page()
             except ConnectionError as e:
                  # Handle potential errors during pagination itself (e.g., token expired mid-sync)
-                 print(f"Error fetching next page: {e}")
+                 logging.error(f"Error fetching next page: {e}")
                  # Depending on the error, might want to break or retry
                  if "token" in str(e).lower(): # Basic check for token errors
                      raise Exception(f"Shopify token likely invalid during pagination: {e}")
                  # For now, re-raise other pagination errors after logging
                  raise e
             except Exception as e:
-                print(f"Unexpected error during pagination: {e}")
+                logging.error(f"Unexpected error during pagination: {e}")
                 raise e
 
         return all_resources_data
@@ -182,7 +179,8 @@ class ShopifyConnector(EcommercePlatformConnector):
         access_token: str,
         shop_domain: str,
         since: Optional[datetime] = None,
-        limit: int = 50
+        limit: int = 50,
+        batch_size: int = 50
     ) -> List[Dict]:
         """Fetch products from Shopify, handling pagination and rate limits."""
         client = await self.get_api_client(access_token, shop_domain)
@@ -192,7 +190,8 @@ class ShopifyConnector(EcommercePlatformConnector):
                 since=since,
                 limit=limit
             )
-            return products_data
+            for i in range(0, len(products_data), batch_size):
+                yield products_data[i:i + batch_size]
         except Exception as e:
             print(f"Error fetching Shopify products for {shop_domain}: {e}")
             raise e
