@@ -7,7 +7,7 @@ from app.services.platform_connector import get_connector
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
-
+from asgiref.sync import async_to_sync
 from app.db.base import get_db
 
 logger = logging.getLogger(__name__) 
@@ -85,8 +85,7 @@ async def upsert_order(db: AsyncSession, order_data: dict):
 
 # --- Celery Task Definition ---
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60 * 5) # Retry after 5 minutes
-async def initial_sync_store(self, store_id: UUID):
+async def sync_store_logic(self, store_id: UUID):
     """Celery task to perform initial data synchronization for a store."""
     logger.info(f"Starting initial sync for store_id: {store_id}")
     db: AsyncSession = await anext(get_db())
@@ -196,7 +195,11 @@ async def initial_sync_store(self, store_id: UUID):
     finally:
         await db.close()
 
-
+@celery_app.task(bind=True, max_retries=3, default_retry_delay=60 * 5) # Retry after 5 minutes
+def initial_sync_store(self, store_id: UUID):
+    """Celery task to perform initial data synchronization for a store."""
+    logger.info(f"Starting initial sync for store_id: {store_id}")
+    async_to_sync(sync_store_logic)(self,store_id)
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
 async def periodic_sync_store(self, store_id: int):
     """Periodically syncs data for a specific store since the last sync."""

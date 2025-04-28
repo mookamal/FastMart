@@ -12,6 +12,7 @@ from app.crud.store import create_or_update_store
 from app.services.platform_connector import get_connector
 from app.core.security import encrypt_token
 from app.tasks.shopify_sync import initial_sync_store
+from app.tasks.tasks import example_task
 
 async def resolve_connect_shopify_store(info: Info, authorization_code: str, shop_domain: str) -> Store:
     """
@@ -138,6 +139,9 @@ async def resolve_trigger_store_sync(info: Info, store_id: str) -> bool:
         
         # Trigger the sync task
         initial_sync_store.delay(store_model.id)
+        # for testing
+        # example_task.delay()
+
         
         return True
         
