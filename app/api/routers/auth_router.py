@@ -95,10 +95,6 @@ async def handle_shopify_callback(
         )
         db_store = await create_or_update_store(db=db, store=store_data)
 
-        # 6. Dispatch Celery task for initial sync
-        from app.tasks.shopify_sync import initial_sync_store
-        initial_sync_store.delay(db_store.id)
-
         # 7. Return success response
         return {
             "message": "Shopify store connected successfully! Initial data sync started.",
