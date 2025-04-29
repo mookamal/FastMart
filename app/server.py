@@ -1,10 +1,24 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from app.api.routers import auth_router
 from app.api.graphql.router import graphql_router
 
 app = FastAPI(title="Analytic Project API")
+
+origins = [
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Include routers
 app.include_router(auth_router.router, prefix="/api/v1", tags=["auth"])
