@@ -238,7 +238,6 @@ def initial_sync_store(self, store_id: UUID):
 def periodic_sync_store(self, store_id: int):
     """Periodically syncs data for a specific store since the last sync."""
     import asyncio
-    import nest_asyncio
     from app.db.base import AsyncSessionLocal
     
     def run_async():
@@ -249,10 +248,7 @@ def periodic_sync_store(self, store_id: int):
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            
-            # Apply nest_asyncio to allow nested use of run_until_complete
-            nest_asyncio.apply(loop)
-            
+
             async def _run():
                 async with AsyncSessionLocal() as db:
                     try:
@@ -371,7 +367,6 @@ async def _periodic_sync_logic(self, store_id: int, db: AsyncSession):
 def schedule_periodic_syncs():
     """Fetches all active stores and schedules periodic_sync_store for each."""
     import asyncio
-    import nest_asyncio
     from app.db.base import AsyncSessionLocal
     
     def run_async():
@@ -382,10 +377,7 @@ def schedule_periodic_syncs():
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            
-            # Apply nest_asyncio to allow nested use of run_until_complete
-            nest_asyncio.apply(loop)
-            
+
             async def _run():
                 async with AsyncSessionLocal() as db:
                     try:
