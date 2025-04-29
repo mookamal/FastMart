@@ -7,8 +7,9 @@ from app.services.platform_connector import get_connector
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
-from app.db.base import get_db
-
+import asyncio
+from app.db.base import AsyncSessionLocal
+from asgiref.sync import async_to_sync
 logger = logging.getLogger(__name__) 
 
 # --- Placeholder CRUD Functions (Replace with actual CRUD module imports if they exist) ---
@@ -207,11 +208,6 @@ async def sync_store_logic(self, store_id: UUID,db: AsyncSession):
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=60*5)
 def initial_sync_store(self, store_id: UUID):
-    import asyncio
-    import nest_asyncio
-    from app.db.base import AsyncSessionLocal
-    from asgiref.sync import async_to_sync
-
     def run_async():
         try:
             # Get or create event loop
@@ -220,10 +216,7 @@ def initial_sync_store(self, store_id: UUID):
             except RuntimeError:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-            
-            # Apply nest_asyncio to allow nested use of run_until_complete
-            nest_asyncio.apply(loop)
-            
+                        
             async def _run():
                 async with AsyncSessionLocal() as db:
                     try:
