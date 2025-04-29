@@ -28,6 +28,6 @@ if __name__ == "__main__":
     test_order_id = 6489984434497
     session = shopify.Session(store.shop_domain,'2025-04' ,token)
     shopify.ShopifyResource.activate_session(session)
-    order = shopify.Customer.find_first()
-    print(order)
+    customer = shopify.Customer.find_first()
+    print(customer.attributes)
 
