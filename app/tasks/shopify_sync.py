@@ -124,17 +124,17 @@ async def sync_store_logic(self, store_id: UUID,db: AsyncSession):
             await db.commit() # Commit after each batch
 
         # --- Customers ---
-        # logger.info(f"Fetching customers for store {store_id}...")
-        # async for customers_batch in connector.fetch_customers(access_token=store.access_token, shop_domain=store.shop_domain):
-        #     logger.info(f"Processing batch of {len(customers_batch)} customers...")
-        #     for customer_data_raw in customers_batch:
-        #         try:
-        #             customer_db_data = await connector.map_customer_to_db_model(customer_data_raw)
-        #             customer_db_data['store_id'] = store.id
-        #             await upsert_customer(db, customer_db_data)
-        #         except Exception as e:
-        #             logger.error(f"Error processing customer {customer_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
-        #     await db.commit() # Commit after each batch
+        logger.info(f"Fetching customers for store {store_id}...")
+        async for customers_batch in connector.fetch_customers(access_token=store.access_token, shop_domain=store.shop_domain):
+            logger.info(f"Processing batch of {len(customers_batch)} customers...")
+            for customer_data_raw in customers_batch:
+                try:
+                    customer_db_data = await connector.map_customer_to_db_model(customer_data_raw)
+                    customer_db_data['store_id'] = store.id
+                    await upsert_customer(db, customer_db_data)
+                except Exception as e:
+                    logger.error(f"Error processing customer {customer_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
+            await db.commit() # Commit after each batch
 
         # --- Orders ---
         logger.info(f"Fetching orders for store {store_id} from {sync_start_date} to {sync_end_date}...")
