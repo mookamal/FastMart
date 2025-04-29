@@ -210,7 +210,6 @@ async def sync_store_logic(self, store_id: UUID,db: AsyncSession):
 def initial_sync_store(self, store_id: UUID):
     def run_async():
         try:
-            # Get or create event loop
             try:
                 loop = asyncio.get_event_loop()
             except RuntimeError:
