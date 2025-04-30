@@ -6,6 +6,7 @@ from uuid import UUID
 import strawberry
 from strawberry.scalars import ID
 from strawberry.types import Info
+from enum import Enum
 
 # Define scalar types
 DateTime = strawberry.scalar(
@@ -41,6 +42,35 @@ class User:
         from app.api.graphql.resolvers.user_resolver import resolve_user_stores
         return await resolve_user_stores(self, info)
 
+@strawberry.enum
+class TimeInterval(Enum):
+    DAY = "DAY"
+    WEEK = "WEEK"
+    MONTH = "MONTH"
+
+@strawberry.input
+class DateRangeInput:
+    start_date: Date
+    end_date: Date
+
+@strawberry.type
+class AnalyticsSummary:
+    total_sales: Numeric
+    order_count: int
+    average_order_value: Numeric
+    new_customer_count: int
+
+@strawberry.type
+class ProductAnalytics:
+    product: "Product"
+    total_quantity_sold: int
+    total_revenue: Numeric
+
+@strawberry.type
+class TimeSeriesDataPoint:
+    date: Date
+    value: Numeric
+
 @strawberry.type
 class Store:
     id: ID
@@ -64,6 +94,21 @@ class Store:
     async def orders(self, info: Info) -> List["Order"]:
         from app.api.graphql.resolvers.store_resolver import resolve_store_orders
         return await resolve_store_orders(self, info)
+        
+    @strawberry.field
+    async def analytics_summary(self, info: Info, date_range: DateRangeInput) -> AnalyticsSummary:
+        from app.api.graphql.resolvers.analytics_resolver import resolve_analytics_summary
+        return await resolve_analytics_summary(self.id, date_range, info)
+    
+    @strawberry.field
+    async def top_selling_products(self, info: Info, date_range: DateRangeInput, limit: int = 5) -> List[ProductAnalytics]:
+        from app.api.graphql.resolvers.analytics_resolver import resolve_top_selling_products
+        return await resolve_top_selling_products(self.id, date_range, limit, info)
+    
+    @strawberry.field
+    async def orders_over_time(self, info: Info, date_range: DateRangeInput, interval: TimeInterval = TimeInterval.DAY) -> List[TimeSeriesDataPoint]:
+        from app.api.graphql.resolvers.analytics_resolver import resolve_orders_over_time
+        return await resolve_orders_over_time(self.id, date_range, interval, info)
 
 @strawberry.type
 class Product:
