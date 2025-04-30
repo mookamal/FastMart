@@ -1,34 +1,10 @@
-import decimal
-from datetime import datetime, date
-from typing import List, Optional
-from uuid import UUID
 
+from typing import List, Optional
 import strawberry
 from strawberry.scalars import ID
 from strawberry.types import Info
 from enum import Enum
-
-# Define scalar types
-DateTime = strawberry.scalar(
-    datetime,
-    description="ISO-8601 formatted datetime",
-    serialize=lambda v: v.isoformat(),
-    parse_value=lambda v: datetime.fromisoformat(v),
-)
-
-Date = strawberry.scalar(
-    date,
-    description="ISO-8601 formatted date",
-    serialize=lambda v: v.isoformat(),
-    parse_value=lambda v: date.fromisoformat(v),
-)
-
-Numeric = strawberry.scalar(
-    decimal.Decimal,
-    description="Decimal number",
-    serialize=lambda v: str(v),
-    parse_value=lambda v: decimal.Decimal(v),
-)
+from app.api.graphql.types.scalars import DateTime, Date, Numeric
 
 # Define GraphQL types
 @strawberry.type
