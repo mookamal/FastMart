@@ -12,7 +12,7 @@ class EcommercePlatformConnector(ABC):
         pass
     
     @abstractmethod
-    async def exchange_code_for_token(self, code: str, shop_domain: str) -> Dict:
+    async def exchange_code_for_token(self, params: dict) -> Dict:
         """
         Exchange an authorization code for an access token.
         
