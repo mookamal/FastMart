@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Form,Request
+from fastapi import APIRouter, Depends, HTTPException, status, Form,Request
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import RedirectResponse
 
 class EmailPasswordForm(OAuth2PasswordRequestForm):
     def __init__(
@@ -17,7 +18,7 @@ from app.services.platform_connector import get_connector
 from app.core.security import encrypt_token,verify_secure_state
 from app.db.base import get_db
 from app.crud.store import create_or_update_store
-from app.schemas.store import StoreCreate, Store
+from app.schemas.store import StoreCreate
 from app.services.auth_service import authenticate_user, create_user, create_user_token
 
 router = APIRouter()
@@ -100,12 +101,9 @@ async def handle_shopify_callback(
         )
         db_store = await create_or_update_store(db=db, store=store_data)
 
-        # 7. Return success response
-        return {
-            "message": "Shopify store connected successfully! Initial data sync started.",
-            "shop_domain": shop,
-            "store_id": db_store.id
-        }
+        # 6. Redirect to the frontend
+        frontend_url = f"http://localhost:3000/shopify-callback?store_id={db_store.id}&shop={shop}"
+        return RedirectResponse(url=frontend_url)
 
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
