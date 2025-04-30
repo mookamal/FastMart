@@ -20,7 +20,7 @@ from app.db.base import get_db
 from app.crud.store import create_or_update_store
 from app.schemas.store import StoreCreate
 from app.services.auth_service import authenticate_user, create_user, create_user_token
-
+from app.tasks.shopify_sync import initial_sync_store
 router = APIRouter()
 
 @router.post("/auth/token", response_model=Dict[str, Any])
@@ -101,7 +101,10 @@ async def handle_shopify_callback(
         )
         db_store = await create_or_update_store(db=db, store=store_data)
 
-        # 6. Redirect to the frontend
+        # 6. Trigger the initial sync
+        initial_sync_store.delay(db_store.id)
+
+        # 7. Redirect to the frontend
         frontend_url = f"http://localhost:3000/shopify-callback?store_id={db_store.id}&shop={shop}"
         return RedirectResponse(url=frontend_url)
 
