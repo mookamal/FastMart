@@ -27,7 +27,6 @@ class Store(Base):
 
     __table_args__ = (
         # Unique constraint for user_id, shop_domain, and platform
-        {"sqlite_autoincrement": True},
     )
 
     @hybrid_property
