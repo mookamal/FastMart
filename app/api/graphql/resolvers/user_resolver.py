@@ -33,7 +33,7 @@ async def resolve_me(info: Info) -> User:
         created_at=user_model.created_at
     )
 
-async def resolve_user_stores(info: Info) -> List[Store]:
+async def resolve_user_stores(root,info: Info) -> List[Store]:
     """Resolver for the stores field on the User type."""
     context = info.context
     db: AsyncSession = context["db"]
