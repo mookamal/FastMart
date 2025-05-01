@@ -225,65 +225,12 @@ async def periodic_sync_store(self, store_id: UUID):
 
 
 # --- Scheduler Task --- 
-
-@celery_app.task
-def schedule_periodic_syncs():
-    """Fetches all active stores and schedules periodic_sync_store for each."""
-    import asyncio
-    from app.db.base import AsyncSessionLocal
-    
-    def run_async():
-        try:
-            # Get or create event loop
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-
-            async def _run():
-                async with AsyncSessionLocal() as db:
-                    try:
-                        return await _schedule_periodic_syncs_logic(db)
-                    except Exception as e:
-                        logger.error(f"Error in _run for schedule_periodic_syncs: {e}", exc_info=True)
-                        raise
-            
-            return loop.run_until_complete(_run())
-        except Exception as e:
-            logger.error(f"Error in run_async for schedule_periodic_syncs: {e}", exc_info=True)
-            raise
-    
-    return run_async()
-
 async def _schedule_periodic_syncs_logic(db: AsyncSession):
     """Logic for fetching all active stores and scheduling periodic_sync_store for each."""
-    logger.info("Running scheduler task: schedule_periodic_syncs")
-    
-    # Ensure db is valid and connected
-    if db.is_active:
-        logger.info("Database session is active for schedule_periodic_syncs")
-    else:
-        logger.error("Database session is not active for schedule_periodic_syncs")
-        return "Database session not active for schedule_periodic_syncs."
-    
-    try:
-        result = await db.execute(select(Store).where(Store.is_active == True))
-        active_stores = result.scalars().all()
-        
-        logger.info(f"Found {len(active_stores)} active stores to schedule sync for.")
-        for store in active_stores:
-            logger.info(f"Scheduling periodic sync for store: {store.name} (id: {store.id})")
-            periodic_sync_store.delay(store.id)
-            
-    except Exception as e:
-        logger.error(f"Error in scheduler task: {e}", exc_info=True)
-        # Consider logging this error more formally
-    finally:
-        # Ensure the database session is properly closed if it's still active
-        if db and db.is_active:
-            try:
-                await db.close()
-                logger.info("Database session closed for schedule_periodic_syncs")
-            except Exception as e:
-                logger.error(f"Error closing database session for schedule_periodic_syncs: {e}", exc_info=True)
+    pass
+
+@celery_async_task()
+async def schedule_periodic_syncs():
+    """Task for fetching all active stores and scheduling periodic_sync_store for each."""
+    async with AsyncSessionLocal() as db:
+        return await _schedule_periodic_syncs_logic(db)
