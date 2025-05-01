@@ -1,0 +1,1 @@
+# Stores module for Store-related GraphQL types, queries, and mutations

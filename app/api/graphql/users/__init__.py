@@ -1,0 +1,1 @@
+# Users module for User-related GraphQL types, queries, and mutations

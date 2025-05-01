@@ -1,0 +1,1 @@
+# Products module for Product-related GraphQL types, queries, and mutations
