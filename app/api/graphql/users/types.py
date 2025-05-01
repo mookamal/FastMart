@@ -14,5 +14,5 @@ class User:
     
     @strawberry.field
     async def stores(self, info: Info) -> List["Store"]:
-        from app.api.graphql.resolvers.user_resolver import resolve_user_stores
+        from app.api.graphql.users.resolvers import resolve_user_stores
         return await resolve_user_stores(self, info)
