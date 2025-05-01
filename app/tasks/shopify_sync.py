@@ -205,9 +205,6 @@ async def sync_store_logic(self, store_id: UUID,db: AsyncSession):
             except Exception as e:
                 logger.error(f"Error closing database session for store_id {store_id}: {e}", exc_info=True)
 
-
-
-
 @celery_async_task()
 async def initial_sync_store(self, store_id: UUID):
     """Task for initial store synchronization"""
