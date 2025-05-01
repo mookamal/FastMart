@@ -360,43 +360,38 @@ async def periodic_sync_store(self, store_id: UUID):
 
 
 # --- Scheduler Task --- 
-async def _schedule_periodic_syncs_logic(db: AsyncSession):
+async def _schedule_periodic_syncs_logic():
     """Logic for fetching all active stores and scheduling periodic_sync_store for each.
-    
     This function queries all active stores and schedules a periodic sync task for each one.
     """
     logger.info("Starting to schedule periodic syncs for all active stores")
-    
     try:
-        # Query all active stores
-        result = await db.execute(select(Store).where(Store.is_active == True))
-        stores = result.scalars().all()
-        
-        if not stores:
-            logger.info("No active stores found for periodic sync scheduling.")
-            return "No active stores found."
-        
-        # Schedule a periodic sync task for each active store
-        scheduled_count = 0
-        for store in stores:
-            try:
-                # Schedule the periodic sync task
-                # The task will be executed asynchronously by Celery
-                periodic_sync_store.delay(store.id)
-                scheduled_count += 1
-                logger.info(f"Scheduled periodic sync for store {store.id}")
-            except Exception as e:
-                logger.error(f"Failed to schedule periodic sync for store {store.id}: {e}", exc_info=True)
-        
-        logger.info(f"Successfully scheduled periodic syncs for {scheduled_count} stores")
-        return f"Scheduled periodic syncs for {scheduled_count} stores."
-        
-    except Exception as e:
-        logger.error(f"Error scheduling periodic syncs: {e}", exc_info=True)
-        return f"Failed to schedule periodic syncs: {str(e)}"
+        async with AsyncSessionLocal() as db:
+            # Query all active stores
+            result = await db.execute(select(Store).where(Store.is_active == True))
+            stores = result.scalars().all()
+            if not stores:
+                logger.info("No active stores found for periodic sync scheduling.")
+                return "No active stores found."
+            # Schedule a periodic sync task for each active store
+            scheduled_count = 0
+            for store in stores:
+                try:
+                    # Schedule the periodic sync task
+                    # The task will be executed asynchronously by Celery
+                    periodic_sync_store.delay(store.id)
+                    scheduled_count += 1
+                    logger.info(f"Scheduled periodic sync for store {store.id}")
+                except Exception as e:
+                    logger.error(f"Failed to schedule periodic sync for store {store.id}: {e}", exc_info=True)
+            logger.info(f"Scheduled periodic syncs for {scheduled_count} stores.")
+            return f"Scheduled periodic syncs for {scheduled_count} stores."
+    except Exception as exc:
+        logger.error(f"Failed to schedule periodic syncs: {exc}", exc_info=True)
+        return f"Failed to schedule periodic syncs: {exc}"
 
 @celery_async_task()
 async def schedule_periodic_syncs(self, *args, **kwargs):
     """Task for fetching all active stores and scheduling periodic_sync_store for each."""
-    async with AsyncSessionLocal() as db:
-        return await _schedule_periodic_syncs_logic(db)
+    
+    await _schedule_periodic_syncs_logic()
