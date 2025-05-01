@@ -25,16 +25,9 @@ celery_app.conf.update(
 
 # Configure Celery Beat schedule
 celery_app.conf.beat_schedule = {
-    # Example scheduled task (uncomment and modify as needed):
-    # 'example-task': {
-    #     'task': 'app.tasks.tasks.example_task',
-    #     'schedule': crontab(minute='*/15'),  # Run every 15 minutes
-    # },
     'schedule-periodic-store-syncs': {
         'task': 'app.tasks.shopify_sync.schedule_periodic_syncs',
-        'schedule': crontab(minute='*'),  # Run every hour at the start of the hour
-        # Use timedelta(hours=1) for exactly one hour interval if crontab is not preferred
-        # 'schedule': timedelta(hours=1),
+        'schedule': crontab(minute=2),
     },
 }
 
