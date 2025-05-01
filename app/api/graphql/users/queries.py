@@ -6,5 +6,5 @@ from app.api.graphql.users.types import User
 class UserQuery:
     @strawberry.field
     async def me(self, info: Info) -> User:
-        from app.api.graphql.resolvers.user_resolver import resolve_me
+        from app.api.graphql.users.resolvers import resolve_me
         return await resolve_me(info)
