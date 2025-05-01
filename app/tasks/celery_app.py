@@ -27,7 +27,7 @@ celery_app.conf.update(
 celery_app.conf.beat_schedule = {
     'schedule-periodic-store-syncs': {
         'task': 'app.tasks.shopify_sync.schedule_periodic_syncs',
-        'schedule': crontab(minute=2),
+        'schedule': crontab(minute='*/3'),
     },
 }
 
