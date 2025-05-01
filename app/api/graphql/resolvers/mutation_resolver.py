@@ -1,18 +1,15 @@
-from typing import Dict, Any
 from uuid import UUID
-
 from strawberry.types import Info
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.core.auth import get_current_user
 from app.db.models.store import Store as StoreModel
-from app.api.graphql.schema import Store
+from app.api.graphql.stores.types import Store
 from app.schemas.store import StoreCreate
 from app.crud.store import create_or_update_store
 from app.services.platform_connector import get_connector
 from app.core.security import encrypt_token
 from app.tasks.shopify_sync import initial_sync_store
-from app.tasks.tasks import example_task
+
 
 async def resolve_connect_shopify_store(info: Info, authorization_code: str, shop_domain: str) -> Store:
     """

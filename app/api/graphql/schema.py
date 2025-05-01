@@ -1,177 +1,27 @@
-
 from typing import List, Optional
 import strawberry
 from strawberry.scalars import ID
-from strawberry.types import Info
-from enum import Enum
-from app.api.graphql.types.scalars import DateTime, Date, Numeric
 
-# Define GraphQL types
+# Import feature queries and mutations
+from app.api.graphql.users.queries import UserQuery
+from app.api.graphql.users.mutations import UserMutation
+from app.api.graphql.stores.queries import StoreQuery
+from app.api.graphql.stores.mutations import StoreMutation
+from app.api.graphql.products.queries import ProductQuery
+from app.api.graphql.products.mutations import ProductMutation
+from app.api.graphql.orders.queries import OrderQuery
+from app.api.graphql.orders.mutations import OrderMutation
+from app.api.graphql.analytics.queries import AnalyticsQuery
+
+# Define root Query type by combining all feature queries
 @strawberry.type
-class User:
-    id: ID
-    email: str
-    created_at: DateTime
-    
-    @strawberry.field
-    async def stores(self, info: Info) -> List["Store"]:
-        from app.api.graphql.resolvers.user_resolver import resolve_user_stores
-        return await resolve_user_stores(self, info)
+class Query(UserQuery, StoreQuery, ProductQuery, OrderQuery, AnalyticsQuery):
+    pass
 
-@strawberry.enum
-class TimeInterval(Enum):
-    DAY = "DAY"
-    WEEK = "WEEK"
-    MONTH = "MONTH"
-
-@strawberry.input
-class DateRangeInput:
-    start_date: Date
-    end_date: Date
-
+# Define root Mutation type by combining all feature mutations
 @strawberry.type
-class AnalyticsSummary:
-    total_sales: Numeric
-    order_count: int
-    average_order_value: Numeric
-    new_customer_count: int
-
-@strawberry.type
-class ProductAnalytics:
-    product: "Product"
-    total_quantity_sold: int
-    total_revenue: Numeric
-
-@strawberry.type
-class TimeSeriesDataPoint:
-    date: Date
-    value: Numeric
-
-@strawberry.type
-class Store:
-    id: ID
-    platform: str
-    shop_domain: str
-    is_active: bool
-    last_sync_at: Optional[DateTime] = None
-    created_at: DateTime
-    
-    @strawberry.field
-    async def products(self, info: Info) -> List["Product"]:
-        from app.api.graphql.resolvers.store_resolver import resolve_store_products
-        return await resolve_store_products(self, info)
-    
-    @strawberry.field
-    async def customers(self, info: Info) -> List["Customer"]:
-        from app.api.graphql.resolvers.store_resolver import resolve_store_customers
-        return await resolve_store_customers(self, info)
-    
-    @strawberry.field
-    async def orders(self, info: Info) -> List["Order"]:
-        from app.api.graphql.resolvers.store_resolver import resolve_store_orders
-        return await resolve_store_orders(self, info)
-        
-    @strawberry.field
-    async def analytics_summary(self, info: Info, date_range: DateRangeInput) -> AnalyticsSummary:
-        from app.api.graphql.resolvers.analytics_resolver import resolve_analytics_summary
-        return await resolve_analytics_summary(self.id, date_range, info)
-    
-    @strawberry.field
-    async def top_selling_products(self, info: Info, date_range: DateRangeInput, limit: int = 5) -> List[ProductAnalytics]:
-        from app.api.graphql.resolvers.analytics_resolver import resolve_top_selling_products
-        return await resolve_top_selling_products(self.id, date_range, limit, info)
-    
-    @strawberry.field
-    async def orders_over_time(self, info: Info, date_range: DateRangeInput, interval: TimeInterval = TimeInterval.DAY) -> List[TimeSeriesDataPoint]:
-        from app.api.graphql.resolvers.analytics_resolver import resolve_orders_over_time
-        return await resolve_orders_over_time(self.id, date_range, interval, info)
-
-@strawberry.type
-class Product:
-    id: ID
-    platform_product_id: str
-    title: str
-    vendor: Optional[str] = None
-    product_type: Optional[str] = None
-    platform_created_at: Optional[DateTime] = None
-    platform_updated_at: Optional[DateTime] = None
-    synced_at: DateTime
-
-@strawberry.type
-class Customer:
-    id: ID
-    platform_customer_id: str
-    email: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    orders_count: int
-    total_spent: Numeric
-    platform_created_at: Optional[DateTime] = None
-    platform_updated_at: Optional[DateTime] = None
-    synced_at: DateTime
-
-@strawberry.type
-class Order:
-    id: ID
-    platform_order_id: str
-    order_number: str
-    total_price: Numeric
-    currency: str
-    financial_status: Optional[str] = None
-    fulfillment_status: Optional[str] = None
-    processed_at: Optional[DateTime] = None
-    platform_created_at: DateTime
-    platform_updated_at: Optional[DateTime] = None
-    synced_at: DateTime
-
-# Define root Query type
-@strawberry.type
-class Query:
-    @strawberry.field
-    async def me(self, info: Info) -> User:
-        from app.api.graphql.resolvers.user_resolver import resolve_me
-        return await resolve_me(info)
-    
-    @strawberry.field
-    async def store(self, info: Info, id: ID) -> Store:
-        from app.api.graphql.resolvers.store_resolver import resolve_store
-        return await resolve_store(info, id)
-    
-
-# Define root Mutation type
-@strawberry.type
-class Mutation:
-    @strawberry.mutation
-    async def gen_link_shopify(self,info: Info,shop_domain: str) -> str:
-        from app.api.graphql.resolvers.mutation_resolver import resolve_gen_link_shopify
-        return await resolve_gen_link_shopify(info,shop_domain)
-    @strawberry.mutation
-    async def connect_shopify_store(
-        self, 
-        info: Info, 
-        authorization_code: str, 
-        shop_domain: str
-    ) -> Store:
-        from app.api.graphql.resolvers.mutation_resolver import resolve_connect_shopify_store
-        return await resolve_connect_shopify_store(info, authorization_code, shop_domain)
-    
-    @strawberry.mutation
-    async def disconnect_store(
-        self, 
-        info: Info, 
-        store_id: ID
-    ) -> bool:
-        from app.api.graphql.resolvers.mutation_resolver import resolve_disconnect_store
-        return await resolve_disconnect_store(info, store_id)
-    
-    @strawberry.mutation
-    async def trigger_store_sync(
-        self, 
-        info: Info, 
-        store_id: ID
-    ) -> bool:
-        from app.api.graphql.resolvers.mutation_resolver import resolve_trigger_store_sync
-        return await resolve_trigger_store_sync(info, store_id)
+class Mutation(UserMutation, StoreMutation, ProductMutation, OrderMutation):
+    pass
 
 # Create schema
 schema = strawberry.Schema(query=Query, mutation=Mutation)

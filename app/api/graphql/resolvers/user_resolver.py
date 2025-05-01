@@ -1,13 +1,11 @@
 from typing import List
-from uuid import UUID
-
 from strawberry.types import Info
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from strawberry.scalars import ID
 from app.db.models.user import User as UserModel
 from app.db.models.store import Store as StoreModel
-from app.api.graphql.schema import User, Store
+from app.api.graphql.stores.types import Store
+from app.api.graphql.users.types import User
 from app.core.auth import get_current_user
 
 async def resolve_me(info: Info) -> User:

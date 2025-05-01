@@ -10,8 +10,11 @@ from app.db.models.store import Store as StoreModel
 from app.db.models.product import Product as ProductModel
 from app.db.models.customer import Customer as CustomerModel
 from app.db.models.order import Order as OrderModel
-from app.api.graphql.schema import Store, Product, Customer, Order
-from app.core.auth import get_current_user, CurrentUser
+from app.api.graphql.products.types import Product
+from app.api.graphql.customers.types import Customer
+from app.api.graphql.orders.types import Order
+from app.api.graphql.stores.types import Store
+from app.core.auth import get_current_user
 
 async def resolve_store(info: Info, id: str) -> Store:
     """Resolver for the store query that returns a specific store by ID."""

@@ -8,7 +8,9 @@ from app.db.models.order import Order as OrderModel
 from app.db.models.customer import Customer as CustomerModel
 from app.db.models.product import Product as ProductModel
 from app.db.models.line_item import LineItem as LineItemModel
-from app.api.graphql.schema import AnalyticsSummary, ProductAnalytics, TimeSeriesDataPoint, Product, TimeInterval
+from app.api.graphql.analytics.types import AnalyticsSummary, ProductAnalytics, TimeSeriesDataPoint
+from app.api.graphql.common.enums import TimeInterval
+from app.api.graphql.products.types import Product
 
 
 async def resolve_analytics_summary(store_id: str, date_range, info: Info) -> AnalyticsSummary:
