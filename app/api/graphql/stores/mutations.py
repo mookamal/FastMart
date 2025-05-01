@@ -9,17 +9,7 @@ class StoreMutation:
     async def gen_link_shopify(self, info: Info, shop_domain: str) -> str:
         from app.api.graphql.resolvers.mutation_resolver import resolve_gen_link_shopify
         return await resolve_gen_link_shopify(info, shop_domain)
-    
-    @strawberry.mutation
-    async def connect_shopify_store(
-        self, 
-        info: Info, 
-        authorization_code: str, 
-        shop_domain: str
-    ) -> Store:
-        from app.api.graphql.resolvers.mutation_resolver import resolve_connect_shopify_store
-        return await resolve_connect_shopify_store(info, authorization_code, shop_domain)
-    
+        
     @strawberry.mutation
     async def disconnect_store(
         self, 
