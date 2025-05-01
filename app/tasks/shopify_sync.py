@@ -211,9 +211,144 @@ async def initial_sync_store(self, store_id: UUID):
     async with AsyncSessionLocal() as db:
         return await sync_store_logic(self, store_id, db)
 
-async def _periodic_sync_logic(self, store_id: int, db: AsyncSession):
-    """Logic for periodically syncing data for a specific store."""
-    pass
+async def _periodic_sync_logic(self, store_id: UUID, db: AsyncSession):
+    """Logic for periodically syncing data for a specific store.
+    
+    This function syncs data that has been updated since the last sync.
+    It uses the store's last_sync_at timestamp as the starting point.
+    """
+    logger.info(f"Starting periodic sync for store_id: {store_id}")
+    # Ensure db is valid and connected
+    if db.is_active:
+        logger.info(f"Database session is active for store_id: {store_id}")
+    else:
+        logger.error(f"Database session is not active for store_id: {store_id}")
+        return f"Database session not active for store {store_id}."
+        
+    try:
+        # 1. Fetch Store
+        result = await db.execute(select(Store).where(Store.id == store_id))
+        store = result.scalars().first()
+
+        if not store:
+            logger.error(f"Store with id {store_id} not found.")
+            return f"Store {store_id} not found."
+        if not store.is_active:
+            logger.warning(f"Store {store_id} is not active. Skipping sync.")
+            return f"Store {store_id} inactive."
+
+        # 2. Get Connector and Decrypt Token
+        connector = get_connector(store.platform)
+        if store.platform.lower() != 'shopify': # Basic check
+             logger.error(f"Store {store_id} is not a Shopify store. Platform: {store.platform}")
+             return f"Store {store_id} is not Shopify."
+
+        # 3. Define Sync Time Range (from last sync to now)
+        sync_end_date = datetime.utcnow()
+        
+        # Use last_sync_at as the starting point, with a small buffer to avoid missing data
+        # If last_sync_at is None (never synced), use a default (e.g., 7 days ago)
+        if store.last_sync_at:
+            # Add a small buffer (e.g., 5 minutes) to avoid missing data due to timing issues
+            sync_start_date = store.last_sync_at - timedelta(minutes=5)
+        else:
+            # If never synced before, use a default timeframe (e.g., last 7 days)
+            sync_start_date = sync_end_date - timedelta(days=7)
+            logger.warning(f"No previous sync found for store {store_id}. Using default timeframe of 7 days.")
+
+        logger.info(f"Syncing data for store {store_id} from {sync_start_date} to {sync_end_date}")
+
+        # 4. Fetch and Process Data
+        # --- Products ---
+        logger.info(f"Fetching products updated since {sync_start_date} for store {store_id}...")
+        async for products_batch in connector.fetch_products(access_token=store.access_token, 
+                                                           shop_domain=store.shop_domain, 
+                                                           since=sync_start_date):
+            logger.info(f"Processing batch of {len(products_batch)} products...")
+            for product_data_raw in products_batch:
+                try:
+                    product_db_data = await connector.map_product_to_db_model(product_data_raw)
+                    product_db_data['store_id'] = store.id
+                    await upsert_product(db, product_db_data)
+                except Exception as e:
+                    logger.error(f"Error processing product {product_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
+            await db.commit() # Commit after each batch
+
+        # --- Customers ---
+        logger.info(f"Fetching customers updated since {sync_start_date} for store {store_id}...")
+        async for customers_batch in connector.fetch_customers(access_token=store.access_token, 
+                                                             shop_domain=store.shop_domain, 
+                                                             since=sync_start_date):
+            logger.info(f"Processing batch of {len(customers_batch)} customers...")
+            for customer_data_raw in customers_batch:
+                try:
+                    customer_db_data = await connector.map_customer_to_db_model(customer_data_raw)
+                    customer_db_data['store_id'] = store.id
+                    await upsert_customer(db, customer_db_data)
+                except Exception as e:
+                    logger.error(f"Error processing customer {customer_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
+            await db.commit() # Commit after each batch
+
+        # --- Orders ---
+        logger.info(f"Fetching orders updated since {sync_start_date} for store {store_id}...")
+        async for orders_batch in connector.fetch_orders(access_token=store.access_token, 
+                                                       shop_domain=store.shop_domain, 
+                                                       since=sync_start_date):
+            logger.info(f"Processing batch of {len(orders_batch)} orders...")
+            for order_data_raw in orders_batch:
+                try:
+                    order_db_data = await connector.map_order_to_db_model(order_data_raw)
+                    order_db_data['store_id'] = store.id
+
+                    # Find associated customer_id
+                    platform_customer_id = order_db_data.pop('platform_customer_id', None) # Get platform ID from mapped data
+                    customer = None
+                    if platform_customer_id:
+                        customer = await get_customer_by_platform_id(db, store.id, platform_customer_id)
+                    
+                    if customer:
+                        order_db_data['customer_id'] = customer.id
+                    else:
+                        order_db_data['customer_id'] = None # Or handle as needed if customer must exist
+                        logger.warning(f"Customer with platform ID {platform_customer_id} not found for store {store_id} while processing order {order_data_raw.get('id')}.")
+
+                    # Extract line items (assuming map_order_to_db_model includes them or they need separate mapping)
+                    line_items_raw = order_data_raw.get('line_items', [])
+                    mapped_line_items = [
+                        await connector.map_line_item_to_db_model(item) for item in line_items_raw
+                    ]
+                    order_db_data['line_items'] = mapped_line_items # Pass mapped items to upsert
+
+                    await upsert_order(db, order_db_data)
+                except Exception as e:
+                    logger.error(f"Error processing order {order_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
+            await db.commit() # Commit after each batch
+
+        # 5. Update Last Sync Time
+        store.last_sync_at = datetime.utcnow()
+        db.add(store)
+        await db.commit()
+        logger.info(f"Successfully completed periodic sync for store_id: {store_id}")
+        return f"Periodic sync completed for store {store_id}."
+
+    except Exception as exc:
+        logger.error(f"Periodic sync failed for store {store_id}: {exc}", exc_info=True)
+        await db.rollback() # Rollback on failure
+        try:
+            # Retry the task with exponential backoff
+            raise self.retry(exc=exc)
+        except self.MaxRetriesExceededError:
+            logger.critical(f"Periodic sync for store {store_id} failed after max retries.")
+            # Optionally, mark the store sync status as failed in the DB
+            return f"Periodic sync failed permanently for store {store_id}."
+    finally:
+        # Ensure the database session is properly closed if it's still active
+        if db and db.is_active:
+            try:
+                await db.close()
+                logger.info(f"Database session closed for store_id: {store_id}")
+            except Exception as e:
+                logger.error(f"Error closing database session for store_id {store_id}: {e}", exc_info=True)
 
 # --- Periodic Sync Task ---
 @celery_async_task()
@@ -226,8 +361,39 @@ async def periodic_sync_store(self, store_id: UUID):
 
 # --- Scheduler Task --- 
 async def _schedule_periodic_syncs_logic(db: AsyncSession):
-    """Logic for fetching all active stores and scheduling periodic_sync_store for each."""
-    pass
+    """Logic for fetching all active stores and scheduling periodic_sync_store for each.
+    
+    This function queries all active stores and schedules a periodic sync task for each one.
+    """
+    logger.info("Starting to schedule periodic syncs for all active stores")
+    
+    try:
+        # Query all active stores
+        result = await db.execute(select(Store).where(Store.is_active == True))
+        stores = result.scalars().all()
+        
+        if not stores:
+            logger.info("No active stores found for periodic sync scheduling.")
+            return "No active stores found."
+        
+        # Schedule a periodic sync task for each active store
+        scheduled_count = 0
+        for store in stores:
+            try:
+                # Schedule the periodic sync task
+                # The task will be executed asynchronously by Celery
+                periodic_sync_store.delay(store.id)
+                scheduled_count += 1
+                logger.info(f"Scheduled periodic sync for store {store.id}")
+            except Exception as e:
+                logger.error(f"Failed to schedule periodic sync for store {store.id}: {e}", exc_info=True)
+        
+        logger.info(f"Successfully scheduled periodic syncs for {scheduled_count} stores")
+        return f"Scheduled periodic syncs for {scheduled_count} stores."
+        
+    except Exception as e:
+        logger.error(f"Error scheduling periodic syncs: {e}", exc_info=True)
+        return f"Failed to schedule periodic syncs: {str(e)}"
 
 @celery_async_task()
 async def schedule_periodic_syncs():
