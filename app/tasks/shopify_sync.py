@@ -396,7 +396,7 @@ async def _schedule_periodic_syncs_logic(db: AsyncSession):
         return f"Failed to schedule periodic syncs: {str(e)}"
 
 @celery_async_task()
-async def schedule_periodic_syncs():
+async def schedule_periodic_syncs(self, *args, **kwargs):
     """Task for fetching all active stores and scheduling periodic_sync_store for each."""
     async with AsyncSessionLocal() as db:
         return await _schedule_periodic_syncs_logic(db)

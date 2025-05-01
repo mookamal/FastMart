@@ -32,7 +32,7 @@ celery_app.conf.beat_schedule = {
     # },
     'schedule-periodic-store-syncs': {
         'task': 'app.tasks.shopify_sync.schedule_periodic_syncs',
-        'schedule': crontab(minute='0', hour='*'),  # Run every hour at the start of the hour
+        'schedule': crontab(minute='*'),  # Run every hour at the start of the hour
         # Use timedelta(hours=1) for exactly one hour interval if crontab is not preferred
         # 'schedule': timedelta(hours=1),
     },
