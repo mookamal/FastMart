@@ -277,11 +277,49 @@ async def resolve_product_average_selling_price(product_id: str, date_range, inf
 
 
 async def resolve_product_inventory_level(product_id: str, info: Info) -> Optional[int]:
-    """Resolver for the inventoryLevel field on the ProductVariantAnalytics type."""
-    # This would typically connect to an inventory service or database
-    # For now, we'll return None as inventory data might not be available
-    # In a real implementation, you would query your inventory system
-    return None
+    """Resolver for the inventoryLevel field on the ProductVariantAnalytics type.
+    
+    Retrieves the total inventory level for a product by summing up the available
+    inventory across all variants from the product's inventory_levels JSONB field.
+    
+    Args:
+        product_id: The ID of the product to get inventory for
+        info: The GraphQL resolver info object containing context
+        
+    Returns:
+        The total inventory count or None if inventory data is not available
+    """
+    context = info.context
+    db: AsyncSession = context["db"]
+    
+    try:
+        # Query the product to get its inventory_levels
+        result = await db.execute(
+            select(ProductModel.inventory_levels)
+            .where(ProductModel.id == product_id)
+        )
+        inventory_data = result.scalar_one_or_none()
+        
+        if not inventory_data:
+            return None
+        
+        # Calculate total inventory by summing up available quantities across all variants
+        total_inventory = 0
+        for variant_id, variant_data in inventory_data.items():
+            # Each variant_data should have an 'available' field with the inventory count
+            if isinstance(variant_data, dict) and 'available' in variant_data:
+                try:
+                    available = int(variant_data['available'])
+                    total_inventory += available
+                except (ValueError, TypeError):
+                    # Skip variants with invalid inventory values
+                    continue
+        
+        return total_inventory
+    except Exception as e:
+        # Log the error but don't raise it to the client
+        logger.error(f"Error retrieving inventory level for product {product_id}: {e}")
+        return None
 
 
 async def resolve_products_with_analytics(info: Info,store_id: str, date_range, first: int = 10, after: Optional[str] = None, 
