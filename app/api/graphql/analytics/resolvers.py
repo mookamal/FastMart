@@ -6,9 +6,6 @@ from strawberry.types import Info
 from decimal import Decimal, InvalidOperation
 import base64
 import json
-import logging
-
-logger = logging.getLogger(__name__)
 
 from app.db.models.order import Order as OrderModel
 from app.db.models.customer import Customer as CustomerModel
