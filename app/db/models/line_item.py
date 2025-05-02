@@ -1,5 +1,5 @@
-from sqlalchemy import (Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func)
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy import (Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, Boolean, func)
+from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP, JSONB
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -19,6 +19,14 @@ class LineItem(Base):
     sku = Column(String(100), nullable=True)
     quantity = Column(Integer, nullable=False)
     price = Column(Numeric(12, 2), nullable=False)
+    # Additional fields for analytics
+    total_discount = Column(Numeric(12, 2), nullable=True)
+    tax_lines = Column(JSONB, nullable=True)
+    properties = Column(JSONB, nullable=True)
+    fulfillment_status = Column(String(50), nullable=True)
+    requires_shipping = Column(Boolean, default=True, nullable=False)
+    gift_card = Column(Boolean, default=False, nullable=False)
+    taxable = Column(Boolean, default=True, nullable=False)
 
     order = relationship("Order", back_populates="line_items")
     product = relationship("Product", back_populates="line_items")

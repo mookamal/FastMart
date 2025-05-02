@@ -224,6 +224,84 @@ class ShopifyConnector(EcommercePlatformConnector):
             raise e
         finally:
             client.ShopifyResource.clear_session()
+            
+    async def fetch_inventory_levels(
+        self,
+        access_token: str,
+        shop_domain: str,
+        limit: int = 250,
+        batch_size: int = 50
+    ) -> List[Dict]:
+        """Fetch inventory levels from Shopify, handling pagination and rate limits.
+        
+        Note: Shopify's inventory_levels endpoint requires location_ids or inventory_item_ids
+        as query parameters. This method fetches inventory items first, then gets their levels.
+        """
+        client = await self.get_api_client(access_token, shop_domain)
+        try:
+            # First, get all locations to use with inventory levels
+            locations = await self._fetch_all_resources(
+                client.Location,
+                limit=limit
+            )
+            
+            if not locations:
+                logging.warning(f"No locations found for {shop_domain}")
+                yield []
+                return
+                
+            location_ids = [location.get('id') for location in locations]
+            all_inventory_levels = []
+            
+            # Fetch inventory levels for each location
+            for location_id in location_ids:
+                try:
+                    # The InventoryLevel.find requires either location_id or inventory_item_ids
+                    levels = client.InventoryLevel.find(location_id=location_id)
+                    for level in levels:
+                        all_inventory_levels.append(level.to_dict())
+                except Exception as location_error:
+                    logging.error(f"Error fetching inventory levels for location {location_id}: {location_error}")
+                    continue
+            
+            # If we couldn't get any inventory levels by location, try a different approach
+            if not all_inventory_levels:
+                logging.info(f"No inventory levels found by location for {shop_domain}, trying alternative approach")
+                try:
+                    # Get a list of product variants first
+                    variants = []
+                    products = await self._fetch_all_resources(client.Product, limit=limit)
+                    for product in products:
+                        if 'variants' in product:
+                            variants.extend(product.get('variants', []))
+                    
+                    # Get inventory item IDs from variants
+                    inventory_item_ids = [variant.get('inventory_item_id') for variant in variants if variant.get('inventory_item_id')]
+                    
+                    # Fetch inventory levels in batches of inventory item IDs
+                    for i in range(0, len(inventory_item_ids), batch_size):
+                        batch_ids = inventory_item_ids[i:i + batch_size]
+                        if batch_ids:
+                            # Join IDs with commas for the API call
+                            ids_param = ','.join(str(id) for id in batch_ids)
+                            try:
+                                levels = client.InventoryLevel.find(inventory_item_ids=ids_param)
+                                for level in levels:
+                                    all_inventory_levels.append(level.to_dict())
+                            except Exception as batch_error:
+                                logging.error(f"Error fetching inventory levels for batch: {batch_error}")
+                except Exception as alt_approach_error:
+                    logging.error(f"Alternative approach for inventory levels failed: {alt_approach_error}")
+            
+            # Yield all collected inventory levels in batches
+            for i in range(0, len(all_inventory_levels), batch_size):
+                yield all_inventory_levels[i:i + batch_size]
+                
+        except Exception as e:
+            logging.error(f"Error fetching Shopify inventory levels for {shop_domain}: {e}")
+            raise Exception(f"Failed to fetch inventory levels: {str(e)}")
+        finally:
+            client.ShopifyResource.clear_session()
 
     def _parse_datetime(self, value: Optional[str]) -> Optional[datetime]:
         """Safely parse ISO 8601 datetime strings from Shopify."""
@@ -256,6 +334,23 @@ class ShopifyConnector(EcommercePlatformConnector):
         # store_id: uuid.UUID # store_id is handled by the caller/sync process
     ) -> Dict:
         """Transform Shopify order data into our database model format (excluding IDs)."""
+        # Extract and process discount applications for analytics
+        discount_applications = platform_order_data.get('discount_applications', [])
+        # Ensure we capture all relevant discount data
+        processed_discounts = []
+        for discount in discount_applications:
+            processed_discount = {
+                'type': discount.get('type'),
+                'value': discount.get('value'),
+                'value_type': discount.get('value_type'),
+                'allocation_method': discount.get('allocation_method'),
+                'target_selection': discount.get('target_selection'),
+                'target_type': discount.get('target_type'),
+                'code': discount.get('code'),
+                'title': discount.get('title')
+            }
+            processed_discounts.append(processed_discount)
+            
         return {
             'platform_order_id': str(platform_order_data.get('id')),
             'order_number': str(platform_order_data.get('order_number')),
@@ -268,6 +363,8 @@ class ShopifyConnector(EcommercePlatformConnector):
             'platform_updated_at': self._parse_datetime(platform_order_data.get('updated_at')),
             # 'customer_id' needs to be looked up based on platform_customer_id
             'platform_customer_id': str(platform_order_data.get('customer', {}).get('id')) if platform_order_data.get('customer') else None,
+            # Store processed discount applications for analytics
+            'discount_applications': processed_discounts,
             # Line items need separate mapping and linking
             # 'raw_line_items': platform_order_data.get('line_items', [])
         }
@@ -304,6 +401,7 @@ class ShopifyConnector(EcommercePlatformConnector):
             'total_spent': self._safe_decimal(platform_customer_data.get('total_spent')),
             'platform_created_at': self._parse_datetime(platform_customer_data.get('created_at')),
             'platform_updated_at': self._parse_datetime(platform_customer_data.get('updated_at')),
+            'tags': platform_customer_data.get('tags', '').split(',') if platform_customer_data.get('tags') else [],
         }
 
     # Placeholder for line item mapping if needed later
@@ -314,6 +412,7 @@ class ShopifyConnector(EcommercePlatformConnector):
         # product_id: Optional[uuid.UUID] # Handled by caller (lookup)
     ) -> Dict:
          """Transform Shopify line item data into our database model format (excluding IDs)."""
+         # Extract all relevant data for analytics
          return {
             'platform_line_item_id': str(platform_line_item_data.get('id')),
             'platform_product_id': str(platform_line_item_data.get('product_id')) if platform_line_item_data.get('product_id') else None,
@@ -323,7 +422,14 @@ class ShopifyConnector(EcommercePlatformConnector):
             'sku': platform_line_item_data.get('sku'),
             'quantity': int(platform_line_item_data.get('quantity', 0)),
             'price': self._safe_decimal(platform_line_item_data.get('price')),
-            # Add other relevant fields like 'vendor' if needed from line item
+            # Additional fields for analytics
+            'total_discount': self._safe_decimal(platform_line_item_data.get('total_discount')),
+            'tax_lines': platform_line_item_data.get('tax_lines', []),
+            'properties': platform_line_item_data.get('properties', []),
+            'fulfillment_status': platform_line_item_data.get('fulfillment_status'),
+            'requires_shipping': platform_line_item_data.get('requires_shipping', False),
+            'gift_card': platform_line_item_data.get('gift_card', False),
+            'taxable': platform_line_item_data.get('taxable', True)
          }
     # generate auth_url for shopify
     async def generate_auth_url(self, shop_domain: str,user_id: str = None) -> str:
@@ -339,7 +445,7 @@ class ShopifyConnector(EcommercePlatformConnector):
         shopify.Session.setup(api_key=api_key, secret=secret)
         session = shopify.Session(shop_url, self.API_VERSION)
 
-        scopes = ['read_products', 'read_orders','read_customers']
+        scopes = ['read_products', 'read_orders','read_customers','read_inventory','read_fulfillments','read_locations']
         # Create a secure state parameter
         if user_id:
             state = create_secure_state(str(user_id))

@@ -1,10 +1,9 @@
 import logging
 from sqlalchemy.future import select
 from sqlalchemy.dialects.postgresql import insert
-from app.tasks.celery_app import celery_app
 from app.db.models import Store, Product, Customer, Order, LineItem
 from app.services.platform_connector import get_connector
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from app.db.base import AsyncSessionLocal
@@ -26,27 +25,55 @@ async def get_product_by_platform_id(db: AsyncSession, store_id: int, platform_p
     return result.scalars().first()
 
 async def upsert_customer(db: AsyncSession, customer_data: dict):
+    # Extract tags from customer_data if present to handle separately
+    tags = customer_data.pop('tags', None)
+    
     stmt = insert(Customer).values(**customer_data)
     stmt = stmt.on_conflict_do_update(
         index_elements=[Customer.store_id, Customer.platform_customer_id],
         set_=customer_data
     )
     await db.execute(stmt)
+    
+    # If we have tags, update the customer after insertion
+    if tags is not None:
+        customer = await get_customer_by_platform_id(db, customer_data['store_id'], customer_data['platform_customer_id'])
+        if customer:
+            customer.tags = tags
+            db.add(customer)
+    
     # Fetch the inserted/updated customer to get the ID
     return await get_customer_by_platform_id(db, customer_data['store_id'], customer_data['platform_customer_id'])
 
 async def upsert_product(db: AsyncSession, product_data: dict):
+    # Extract inventory_levels if present to handle separately
+    inventory_levels = product_data.pop('inventory_levels', None)
+    
     stmt = insert(Product).values(**product_data)
     stmt = stmt.on_conflict_do_update(
         index_elements=[Product.store_id, Product.platform_product_id],
         set_=product_data
     )
     await db.execute(stmt)
+    
+    # If we have inventory levels, update the product after insertion
+    if inventory_levels:
+        result = await db.execute(
+            select(Product).where(
+                Product.store_id == product_data['store_id'],
+                Product.platform_product_id == product_data['platform_product_id']
+            )
+        )
+        product = result.scalars().first()
+        if product:
+            product.inventory_levels = inventory_levels
+            db.add(product)
     return await get_product_by_platform_id(db, product_data['store_id'], product_data['platform_product_id'])
 
 async def upsert_order(db: AsyncSession, order_data: dict):
-    # Ensure line_items are removed before upserting the order itself
+    # Ensure line_items and discount_applications are removed before upserting the order itself
     line_items_data = order_data.pop('line_items', [])
+    discount_applications = order_data.pop('discount_applications', None)
     
     stmt = insert(Order).values(**order_data)
     stmt = stmt.on_conflict_do_update(
@@ -55,6 +82,17 @@ async def upsert_order(db: AsyncSession, order_data: dict):
     ).returning(Order.id)
     result = await db.execute(stmt)
     order_id = result.scalar_one()
+    
+    # Update order with discount applications if present
+    if order_id and discount_applications is not None:
+        # Fetch the order to update it with discount applications
+        result = await db.execute(
+            select(Order).where(Order.id == order_id)
+        )
+        order = result.scalars().first()
+        if order:
+            order.discount_applications = discount_applications
+            db.add(order)
     
     # Handle line items after order is upserted
     if order_id and line_items_data:
@@ -70,6 +108,18 @@ async def upsert_order(db: AsyncSession, order_data: dict):
                  # Handle case where product doesn't exist (log, skip, etc.)
                  logger.warning(f"Product with platform ID {item_data.get('platform_product_id')} not found for store {item_data['store_id']}. Skipping line item.")
                  continue
+            
+            # Ensure all new fields are properly handled
+            # Convert JSON fields to proper format if they exist
+            if 'tax_lines' in item_data and item_data['tax_lines'] is not None:
+                # Ensure tax_lines is in the correct format for JSONB
+                if not isinstance(item_data['tax_lines'], list):
+                    item_data['tax_lines'] = []
+            
+            if 'properties' in item_data and item_data['properties'] is not None:
+                # Ensure properties is in the correct format for JSONB
+                if not isinstance(item_data['properties'], list):
+                    item_data['properties'] = []
             
             # Upsert line item (assuming platform_line_item_id exists and is unique per order)
             line_item_stmt = insert(LineItem).values(**item_data)
@@ -128,13 +178,80 @@ async def sync_store_logic(self, store_id: UUID,db: AsyncSession):
                 except Exception as e:
                     logger.error(f"Error processing product {product_data_raw.get('id')} for store {store_id}: {e}", exc_info=True)
             await db.commit() # Commit after each batch
+            
+        # --- Inventory Levels ---
+        logger.info(f"Fetching inventory levels for store {store_id}...")
+        try:
+            # Create a mapping of inventory_item_id to inventory level
+            inventory_map = {}
+            inventory_batches_processed = 0
+            
+            try:
+                async for inventory_batch in connector.fetch_inventory_levels(access_token=store.access_token, shop_domain=store.shop_domain):
+                    inventory_batches_processed += 1
+                    logger.info(f"Processing batch of {len(inventory_batch)} inventory levels...")
+                    for level in inventory_batch:
+                        inventory_item_id = level.get('inventory_item_id')
+                        if inventory_item_id:
+                            inventory_map[str(inventory_item_id)] = {
+                                'available': level.get('available'),
+                                'location_id': level.get('location_id')
+                            }
+            except Exception as inventory_fetch_error:
+                # Log the error but continue with any inventory data we might have collected
+                logger.error(f"Error fetching inventory levels for store {store_id}: {inventory_fetch_error}", exc_info=True)
+                if inventory_batches_processed == 0:
+                    logger.warning(f"No inventory data was retrieved for store {store_id}. Skipping inventory update.")
+                    # If we have no inventory data at all, skip the rest of the inventory processing
+                    raise inventory_fetch_error
+                else:
+                    logger.info(f"Proceeding with partial inventory data ({len(inventory_map)} items) for store {store_id}")
+            
+            if inventory_map:
+                # Now fetch all products again to update with inventory levels
+                result = await db.execute(select(Product).where(Product.store_id == store.id))
+                products = result.scalars().all()
+                
+                # We need to fetch product variants to get inventory_item_ids
+                # This is a simplified approach - in production, you'd want to batch this
+                products_updated = 0
+                for product in products:
+                    try:
+                        # Fetch product with variants from Shopify
+                        client = await connector.get_api_client(store.access_token, store.shop_domain)
+                        shopify_product = client.Product.find(product.platform_product_id)
+                        
+                        # Extract inventory_item_ids from variants
+                        product_inventory = {}
+                        for variant in shopify_product.variants:
+                            inventory_item_id = str(variant.inventory_item_id)
+                            if inventory_item_id in inventory_map:
+                                variant_id = str(variant.id)
+                                product_inventory[variant_id] = inventory_map[inventory_item_id]
+                        
+                        # Update product with inventory levels
+                        if product_inventory:
+                            product.inventory_levels = product_inventory
+                            db.add(product)
+                            products_updated += 1
+                    except Exception as e:
+                        logger.error(f"Error updating inventory for product {product.platform_product_id}: {e}", exc_info=True)
+                        # Continue with other products
+                
+                await db.commit()
+                logger.info(f"Updated inventory levels for {products_updated} products in store {store_id}")
+            else:
+                logger.warning(f"No valid inventory data found for store {store_id}. Skipping inventory update.")
+        except Exception as e:
+            logger.error(f"Error processing inventory levels for store {store_id}: {e}", exc_info=True)
+            # Continue with the rest of the sync process despite inventory issues
 
         # --- Customers ---
         logger.info(f"Fetching customers for store {store_id}...")
         async for customers_batch in connector.fetch_customers(access_token=store.access_token, shop_domain=store.shop_domain):
             logger.info(f"Processing batch of {len(customers_batch)} customers...")
             for customer_data_raw in customers_batch:
-                try:
+                try:                    
                     customer_db_data = await connector.map_customer_to_db_model(customer_data_raw)
                     customer_db_data['store_id'] = store.id
                     await upsert_customer(db, customer_db_data)

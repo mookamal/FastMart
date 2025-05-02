@@ -1,5 +1,5 @@
 from sqlalchemy import (Column, DateTime, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func)
-from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP
+from sqlalchemy.dialects.postgresql import UUID, TIMESTAMP, JSONB
 from sqlalchemy.orm import relationship
 
 from app.db.base import Base
@@ -21,6 +21,7 @@ class Order(Base):
     platform_created_at = Column(TIMESTAMP(timezone=True), nullable=False)
     platform_updated_at = Column(TIMESTAMP(timezone=True), nullable=True)
     synced_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    discount_applications = Column(JSONB, nullable=True)
 
     store = relationship("Store", back_populates="orders")
     customer = relationship("Customer", back_populates="orders")
