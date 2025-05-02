@@ -239,32 +239,8 @@ class ShopifyConnector(EcommercePlatformConnector):
         """
         client = await self.get_api_client(access_token, shop_domain)
         try:
-            # First, get all locations to use with inventory levels
-            locations = await self._fetch_all_resources(
-                client.Location,
-                limit=limit
-            )
-            
-            if not locations:
-                logging.warning(f"No locations found for {shop_domain}")
-                yield []
-                return
-                
-            location_ids = [location.get('id') for location in locations]
             all_inventory_levels = []
             
-            # Fetch inventory levels for each location
-            for location_id in location_ids:
-                try:
-                    # The InventoryLevel.find requires either location_id or inventory_item_ids
-                    levels = client.InventoryLevel.find(location_id=location_id)
-                    for level in levels:
-                        all_inventory_levels.append(level.to_dict())
-                except Exception as location_error:
-                    logging.error(f"Error fetching inventory levels for location {location_id}: {location_error}")
-                    continue
-            
-            # If we couldn't get any inventory levels by location, try a different approach
             if not all_inventory_levels:
                 logging.info(f"No inventory levels found by location for {shop_domain}, trying alternative approach")
                 try:
