@@ -1,4 +1,4 @@
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 from typing import Optional
 import uuid
 
@@ -20,5 +20,6 @@ class Store(StoreBase):
     id: int
     access_token: str # Keep encrypted token here as well for retrieval if needed
 
-    class Config:
-        orm_mode = True # Enable ORM mode for SQLAlchemy compatibility
+    model_config = {
+        "from_attributes": True  # Replaces orm_mode = True
+    }
