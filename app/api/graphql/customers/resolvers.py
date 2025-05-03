@@ -88,73 +88,61 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
         return None
     
     @classmethod
-    async def get_customers_connection(cls, store_id: str, limit: int = 20, offset: int = 0,
-                                     sort_by: Optional[str] = None, sort_desc: bool = False,
-                                     search: Optional[str] = None, db: AsyncSession = None) -> CustomerConnection:
-        """Get a paginated connection of customers with optional filtering and sorting."""
+    async def get_customers_connection(cls, store_id: str, first: int, after: Optional[str], db: AsyncSession) -> CustomerConnection:
+        """Get a paginated connection of customers."""
         try:
-            # Convert string ID to UUID
             store_uuid = UUID(store_id)
-            
-            # Start building the query
             query = select(cls.model_class).where(cls.model_class.store_id == store_uuid)
-            
-            # Apply search filter if provided
-            if search:
-                search_term = f"%{search}%"
-                query = query.where(
-                    cls.model_class.email.ilike(search_term) | 
-                    cls.model_class.first_name.ilike(search_term) | 
-                    cls.model_class.last_name.ilike(search_term)
-                )
-            
-            # Apply sorting
-            if sort_by:
-                sort_column = getattr(cls.model_class, sort_by, cls.model_class.synced_at)
-                if sort_desc:
-                    query = query.order_by(desc(sort_column))
-                else:
-                    query = query.order_by(sort_column)
-            else:
-                # Default sorting by synced_at desc
-                query = query.order_by(desc(cls.model_class.synced_at))
-            
-            # Get total count for pagination info
-            count_query = select(func.count()).select_from(query.subquery())
-            total_count = await db.scalar(count_query) or 0
-            
-            # Apply pagination
-            query = query.offset(offset).limit(limit)
-            
-            # Execute query
+
+            # Apply cursor-based pagination
+            if after:
+                cursor_value = decode_cursor(after)
+                # Assuming cursor is the customer ID
+                query = query.where(cls.model_class.id > UUID(cursor_value))
+
+            # Apply limit
+            query = query.limit(first + 1)  # +1 to check if there's a next page
+
             result = await db.execute(query)
             customers = result.scalars().all()
-            
-            # Convert to GraphQL types and create edges
+
+            # Check if there's a next page
+            has_next_page = len(customers) > first
+            if has_next_page:
+                customers = customers[:first]  # Remove the extra item
+
+            # Create edges
             edges = []
             for customer in customers:
-                customer_obj = cls.to_graphql_type(customer)
-                edges.append(CustomerEdge(node=customer_obj, cursor=str(customer.id)))
-            
+                customer = cls.to_graphql_type(customer)
+                cursor = encode_cursor(str(customer.id))
+                edges.append(CustomerEdge(node=customer, cursor=cursor))
+
             # Create page info
-            has_next_page = offset + limit < total_count
-            has_previous_page = offset > 0
             start_cursor = edges[0].cursor if edges else None
             end_cursor = edges[-1].cursor if edges else None
             page_info = PageInfo(
-                has_next_page=has_next_page,
-                has_previous_page=has_previous_page,
                 start_cursor=start_cursor,
-                end_cursor=end_cursor
+                end_cursor=end_cursor,
+                has_next_page=has_next_page,
+                has_previous_page=after is not None
             )
-            
+            # Get total count
+            total_count_query = select(func.count()).select_from(cls.model_class).where(cls.model_class.store_id == store_uuid)
+            total_count_result = await db.execute(total_count_query)
+            total_count = total_count_result.scalar()
+
             return CustomerConnection(
                 edges=edges,
-                total_count=total_count,
-                page_info=page_info
+                page_info=page_info,
+                total_count=total_count
             )
+
+
         except Exception as e:
-            raise ValueError(f"Error retrieving customer connection: {str(e)}")
+            raise ValueError(f"Error retrieving customers: {str(e)}")
+
+
 
 async def resolve_customers(info: Info, store_id: str, limit: int = 20, offset: int = 0, 
                           sort_by: Optional[str] = None, sort_desc: bool = False, 
