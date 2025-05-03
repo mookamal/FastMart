@@ -36,9 +36,10 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
         )
     
     @classmethod
-    async def get_customer_last_order_date(cls, customer_id: str, db: AsyncSession) -> Optional[DateTime]:
+    async def get_customer_last_order_date(cls, customer_id: str,info: Info) -> Optional[DateTime]:
         """Get the date of the customer's last order."""
         try:
+            db: AsyncSession = cls.get_db_from_info(info)
             # Convert string ID to UUID
             customer_uuid = UUID(customer_id)
             

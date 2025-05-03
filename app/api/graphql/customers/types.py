@@ -25,8 +25,10 @@ class Customer:
     
     @strawberry.field
     async def date_of_last_order(self, info) -> Optional[DateTime]:
-        from app.api.graphql.customers.resolvers import resolve_customer_last_order_date
-        return await resolve_customer_last_order_date(self.id, info)
+        from app.api.graphql.customers.resolvers import CustomerResolver
+        return await CustomerResolver.get_customer_last_order_date(self.id, info)
+        
+  
     
     @strawberry.field
     async def lifetime_value(self, info) -> Numeric:
