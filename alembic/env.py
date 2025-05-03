@@ -9,13 +9,7 @@ from app.db.base import Base  # Ensure your Base model is imported
 from app.core.config import get_settings # Import your settings
 
 # Import your models here if needed for autogenerate
-from app.db.models.user import User
-from app.db.models.store import Store
-from app.db.models.product import Product
-from app.db.models.customer import Customer
-from app.db.models.order import Order
-from app.db.models.line_item import LineItem
-from app.db.models.product_variant import ProductVariant
+from app.db.models import *
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config

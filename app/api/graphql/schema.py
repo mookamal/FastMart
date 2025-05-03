@@ -13,6 +13,7 @@ from app.api.graphql.orders.queries import OrderQuery
 from app.api.graphql.customers.queries import CustomerQuery
 from app.api.graphql.orders.mutations import OrderMutation
 from app.api.graphql.analytics.queries import AnalyticsQuery
+from app.api.graphql.analytics.mutations import AnalyticsMutation
 
 # Define root Query type by combining all feature queries
 @strawberry.type
@@ -21,7 +22,7 @@ class Query(UserQuery, StoreQuery, ProductQuery, OrderQuery, AnalyticsQuery,Cust
 
 # Define root Mutation type by combining all feature mutations
 @strawberry.type
-class Mutation(UserMutation, StoreMutation, ProductMutation, OrderMutation):
+class Mutation(UserMutation, StoreMutation, ProductMutation, OrderMutation, AnalyticsMutation):
     pass
 
 # Create schema

@@ -25,6 +25,10 @@ class Store(Base):
     products = relationship("Product", back_populates="store", cascade="all, delete-orphan")
     customers = relationship("Customer", back_populates="store", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="store", cascade="all, delete-orphan")
+    ad_spends = relationship("AdSpend", back_populates="store", cascade="all, delete-orphan")
+    other_costs = relationship("OtherCost", back_populates="store", cascade="all, delete-orphan")
+    shipping_cost_rules = relationship("ShippingCostRule", back_populates="store", cascade="all, delete-orphan")
+    transaction_fee_rules = relationship("TransactionFeeRule", back_populates="store", cascade="all, delete-orphan")
 
     __table_args__ = (
         # Unique constraint for user_id, shop_domain, and platform

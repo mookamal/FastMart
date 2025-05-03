@@ -17,6 +17,7 @@ class Order(Base):
     currency = Column(String(10), nullable=False)
     financial_status = Column(String(50), nullable=True)
     fulfillment_status = Column(String(50), nullable=True)
+    actual_shipping_cost = Column(Numeric(12, 2), nullable=True)  # Added for Net Profit tracking
     processed_at = Column(TIMESTAMP(timezone=True), nullable=True)
     platform_created_at = Column(TIMESTAMP(timezone=True), nullable=False)
     platform_updated_at = Column(TIMESTAMP(timezone=True), nullable=True)

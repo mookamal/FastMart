@@ -25,6 +25,7 @@ class ProductVariant(Base):
     taxable = Column(Boolean, nullable=True, default=True)
     barcode = Column(String(100), nullable=True)
     image_id = Column(String(100), nullable=True)
+    cost_of_goods_sold = Column(Numeric(10, 2), nullable=True)  # Added for Net Profit tracking
     platform_created_at = Column(TIMESTAMP(timezone=True), nullable=True)
     platform_updated_at = Column(TIMESTAMP(timezone=True), nullable=True)
     synced_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
