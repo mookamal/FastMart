@@ -83,13 +83,14 @@ class ShopifyConnector(EcommercePlatformConnector):
             # Exchange code for access token
             access_token = session.request_token(params)
             # It's good practice to fetch the shop details to confirm connection
-            # shopify.ShopifyResource.activate_session(session)
-            # shop = shopify.Shop.current() # This confirms the token works
+            shopify.ShopifyResource.activate_session(session)
+            shop = shopify.Shop.current() # This confirms the token works
+            shop_data = shop.to_dict()
             # shopify.ShopifyResource.clear_session()
-
             return {
                 'access_token': access_token,
-                'scope': [] # Assuming scope is available on the session object
+                'scope': [] ,
+                'currency': shop_data['currency']
             }
         except ConnectionError as e:
             raise Exception(f"Failed to exchange code for token (Shopify API Error): {str(e)}")

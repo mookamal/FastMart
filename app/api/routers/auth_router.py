@@ -74,9 +74,11 @@ async def handle_shopify_callback(
         token_data = await connector.exchange_code_for_token(params)
         access_token = token_data.get('access_token')
         scope = token_data.get('scope')
+        currency = token_data.get('currency')
 
         if not access_token:
             raise HTTPException(status_code=400, detail="Could not retrieve access token from Shopify")
+        
 
         # 3. Encrypt the access token
         encrypted_token = encrypt_token(access_token)
@@ -97,7 +99,8 @@ async def handle_shopify_callback(
             domain=shop,
             access_token=encrypted_token,
             scope=str(scope),
-            is_active=True
+            is_active=True,
+            currency=currency,
         )
         db_store = await create_or_update_store(db=db, store=store_data)
 

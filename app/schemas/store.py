@@ -7,6 +7,7 @@ class StoreBase(BaseModel):
     user_id: uuid.UUID
     platform: str
     domain: str
+    currency: str
     scope: Optional[str] = None
     is_active: bool = True
 
