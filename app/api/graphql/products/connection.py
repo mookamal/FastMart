@@ -1,22 +1,11 @@
-from typing import List, Optional
+from typing import List
 import strawberry
-from strawberry.scalars import ID
 from app.api.graphql.products.types import Product
+from app.api.graphql.common.connection import Connection, Edge, PageInfo
 
-@strawberry.type
-class ProductEdge:
-    node: Product
-    cursor: str
+# Type aliases for Product connections
+ProductEdge = Edge[Product]
+ProductConnection = Connection[Product]
 
-@strawberry.type
-class ProductConnection:
-    edges: List[ProductEdge]
-    total_count: int
-    page_info: "PageInfo"
-
-@strawberry.type
-class PageInfo:
-    has_next_page: bool
-    has_previous_page: bool
-    start_cursor: Optional[str] = None
-    end_cursor: Optional[str] = None
+# Re-export these types for backward compatibility
+__all__ = ['ProductEdge', 'ProductConnection', 'PageInfo']
