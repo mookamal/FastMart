@@ -1,9 +1,7 @@
 import strawberry
-from typing import List, Optional
+from typing import List
 from strawberry.scalars import ID
 from app.api.graphql.types.scalars import Numeric, Date
-from app.api.graphql.common.inputs import DateRangeInput
-from app.api.graphql.analytics.types import AdSpend, OtherCost
 
 @strawberry.type
 class NetProfitMetrics:
