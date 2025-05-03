@@ -56,13 +56,14 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
             raise ValueError(f"Error retrieving customer's last order date: {str(e)}")
     
     @classmethod
-    async def get_customer_lifetime_value(cls, customer_id: str, db: AsyncSession) -> Numeric:
+    async def get_customer_lifetime_value(cls, customer_id: str,info: Info) -> Numeric:
         """Get the customer's lifetime value.
         
         For this implementation, we'll use a simple LTV calculation based on total spent,
         but this could be enhanced with more sophisticated calculations in the future.
         """
         try:
+            db: AsyncSession = cls.get_db_from_info(info)
             # Convert string ID to UUID
             customer_uuid = UUID(customer_id)
             
@@ -78,7 +79,7 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
             raise ValueError(f"Error retrieving customer's lifetime value: {str(e)}")
     
     @classmethod
-    async def get_customer_tags(cls, customer_id: str, db: AsyncSession) -> Optional[List[str]]:
+    async def get_customer_tags(cls, customer_id: str,info:Info) -> Optional[List[str]]:
         """Get the customer's tags.
         
         This is a placeholder implementation. In a real application, you would
@@ -142,24 +143,3 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
 
         except Exception as e:
             raise ValueError(f"Error retrieving customers: {str(e)}")
-
-
-
-
-async def resolve_customer_last_order_date(customer_id: str, info: Info) -> Optional[DateTime]:
-    """Resolver for the dateOfLastOrder field on the Customer type."""
-    context = info.context
-    db: AsyncSession = context["db"]
-    return await CustomerResolver.get_customer_last_order_date(customer_id, db)
-
-async def resolve_customer_lifetime_value(customer_id: str, info: Info) -> Numeric:
-    """Resolver for the lifetimeValue field on the Customer type."""
-    context = info.context
-    db: AsyncSession = context["db"]
-    return await CustomerResolver.get_customer_lifetime_value(customer_id, db)
-
-async def resolve_customer_tags(customer_id: str, info: Info) -> Optional[List[str]]:
-    """Resolver for the tags field on the Customer type."""
-    context = info.context
-    db: AsyncSession = context["db"]
-    return await CustomerResolver.get_customer_tags(customer_id, db)

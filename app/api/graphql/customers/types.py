@@ -32,10 +32,10 @@ class Customer:
     
     @strawberry.field
     async def lifetime_value(self, info) -> Numeric:
-        from app.api.graphql.customers.resolvers import resolve_customer_lifetime_value
-        return await resolve_customer_lifetime_value(self.id, info)
+        from app.api.graphql.customers.resolvers import CustomerResolver
+        return await CustomerResolver.get_customer_lifetime_value(self.id, info)
     
     @strawberry.field
     async def tags(self, info) -> Optional[List[str]]:
-        from app.api.graphql.customers.resolvers import resolve_customer_tags
-        return await resolve_customer_tags(self.id, info)
+        from app.api.graphql.customers.resolvers import CustomerResolver
+        return await CustomerResolver.get_customer_tags(self.id, info)
