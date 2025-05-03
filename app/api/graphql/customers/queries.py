@@ -3,19 +3,24 @@ from typing import Optional
 from strawberry.scalars import ID
 from app.api.graphql.customers.connection import CustomerConnection
 from app.api.graphql.common.inputs import DateRangeInput
-
+from app.api.graphql.common.connection import Connection
 @strawberry.type
 class CustomerQuery:
-    @strawberry.field
-    async def customers(
-        self, 
-        info, 
-        store_id: ID, 
-        limit: int = 20, 
-        offset: int = 0, 
-        sort_by: Optional[str] = None, 
-        sort_desc: bool = False, 
-        search: Optional[str] = None
-    ) -> CustomerConnection:
-        from app.api.graphql.customers.resolvers import resolve_customers
-        return await resolve_customers(info, store_id, limit, offset, sort_by, sort_desc, search)
+    pass
+    # @strawberry.field
+    # async def customers_connection(
+    #     self, 
+    #     info: Info, 
+    #     store_id: strawberry.ID, 
+    #     first: int = 10, 
+    #     after: Optional[str] = None
+    # ) -> CustomerConnection:
+    #     """Get a paginated list of customers."""
+    #     from app.api.graphql.customers.resolvers import CustomerResolver
+    #     db = CustomerResolver.get_db_from_info(info)
+    #     return await CustomerResolver.get_customers_connection(
+    #         store_id=store_id,
+    #         first=first,
+    #         after=after,
+    #         db=db
+    #     )
