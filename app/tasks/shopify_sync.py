@@ -88,16 +88,18 @@ async def upsert_product(db: AsyncSession, product_data: dict):
             product.inventory_levels = inventory_levels
             db.add(product)
     # Process variants if we have them and the product exists
-    if variants_data and product:
-        for variant_data_raw in variants_data:
-            try:
-                # Get the connector to map variant data
-                connector = get_connector('shopify')
-                variant_db_data = await connector.map_product_variant_to_db_model(variant_data_raw)
-                variant_db_data['product_id'] = product.id
-                await upsert_product_variant(db, variant_db_data)
-            except Exception as e:
-                logging.error(f"Error processing variant {variant_data_raw.get('id')} for product {product.id}: {e}", exc_info=True)
+    if variants_data:
+        product = await get_product_by_platform_id(db, product_data['store_id'], product_data['platform_product_id'])
+        if  product:
+            for variant_data_raw in variants_data:
+                try:
+                    # Get the connector to map variant data
+                    connector = get_connector('shopify')
+                    variant_db_data = await connector.map_product_variant_to_db_model(variant_data_raw)
+                    variant_db_data['product_id'] = product.id
+                    await upsert_product_variant(db, variant_db_data)
+                except Exception as e:
+                    logging.error(f"Error processing variant {variant_data_raw.get('id')} for product {product.id}: {e}", exc_info=True)
 
     return await get_product_by_platform_id(db, product_data['store_id'], product_data['platform_product_id'])
 
