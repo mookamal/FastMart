@@ -50,6 +50,7 @@ async def resolve_user_stores(root,info: Info) -> List[Store]:
             shop_domain=store.shop_domain,
             is_active=store.is_active,
             last_sync_at=store.last_sync_at,
-            created_at=store.created_at
+            created_at=store.created_at,
+            currency=store.currency,
         ) for store in store_models
     ]

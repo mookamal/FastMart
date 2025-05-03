@@ -42,7 +42,8 @@ async def resolve_store(info: Info, id: str) -> Store:
         shop_domain=store_model.shop_domain,
         is_active=store_model.is_active,
         last_sync_at=store_model.last_sync_at,
-        created_at=store_model.created_at
+        created_at=store_model.created_at,
+        currency=store_model.currency,
     )
 
 async def resolve_store_products(store: Store, info: Info) -> List[Product]:
