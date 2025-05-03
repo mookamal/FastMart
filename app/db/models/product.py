@@ -21,5 +21,6 @@ class Product(Base):
 
     store = relationship("Store", back_populates="products")
     line_items = relationship("LineItem", back_populates="product", cascade="all, delete-orphan")
+    variants = relationship("ProductVariant", back_populates="product", cascade="all, delete-orphan")
 
     __table_args__ = (UniqueConstraint('store_id', 'platform_product_id', name='uq_store_platform_product'),)

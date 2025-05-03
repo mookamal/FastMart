@@ -15,6 +15,7 @@ from app.db.models.product import Product
 from app.db.models.customer import Customer
 from app.db.models.order import Order
 from app.db.models.line_item import LineItem
+from app.db.models.product_variant import ProductVariant
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
