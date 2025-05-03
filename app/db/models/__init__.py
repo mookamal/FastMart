@@ -4,6 +4,7 @@ from .store import Store
 from .line_item import LineItem
 from .order import Order
 from .product import Product
+from .product_variant import ProductVariant
 
 __all__ = [
     'Customer',
@@ -11,5 +12,6 @@ __all__ = [
     'Store',
     'LineItem',
     'Order',
-    'Product'
+    'Product',
+    'ProductVariant'
 ]

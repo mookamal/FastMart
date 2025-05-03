@@ -1,7 +1,7 @@
 import logging
 from sqlalchemy.future import select
 from sqlalchemy.dialects.postgresql import insert
-from app.db.models import Store, Product, Customer, Order, LineItem
+from app.db.models import Store, Product, Customer, Order, LineItem,ProductVariant
 from app.services.platform_connector import get_connector
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,9 +45,28 @@ async def upsert_customer(db: AsyncSession, customer_data: dict):
     # Fetch the inserted/updated customer to get the ID
     return await get_customer_by_platform_id(db, customer_data['store_id'], customer_data['platform_customer_id'])
 
+async def get_product_variant_by_platform_id(db: AsyncSession, product_id: UUID, platform_variant_id: str) -> ProductVariant | None:
+    result = await db.execute(
+        select(ProductVariant).where(
+            ProductVariant.product_id == product_id, 
+            ProductVariant.platform_variant_id == platform_variant_id
+        )
+    )
+    return result.scalars().first()
+
+async def upsert_product_variant(db: AsyncSession, variant_data: dict):
+    stmt = insert(ProductVariant).values(**variant_data)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[ProductVariant.product_id, ProductVariant.platform_variant_id],
+        set_=variant_data
+    )
+    await db.execute(stmt)
+    return await get_product_variant_by_platform_id(db, variant_data['product_id'], variant_data['platform_variant_id'])
+
 async def upsert_product(db: AsyncSession, product_data: dict):
     # Extract inventory_levels if present to handle separately
     inventory_levels = product_data.pop('inventory_levels', None)
+    variants_data = product_data.pop('variants', [])
     
     stmt = insert(Product).values(**product_data)
     stmt = stmt.on_conflict_do_update(
@@ -68,6 +87,18 @@ async def upsert_product(db: AsyncSession, product_data: dict):
         if product:
             product.inventory_levels = inventory_levels
             db.add(product)
+    # Process variants if we have them and the product exists
+    if variants_data and product:
+        for variant_data_raw in variants_data:
+            try:
+                # Get the connector to map variant data
+                connector = get_connector('shopify')
+                variant_db_data = await connector.map_product_variant_to_db_model(variant_data_raw)
+                variant_db_data['product_id'] = product.id
+                await upsert_product_variant(db, variant_db_data)
+            except Exception as e:
+                logging.error(f"Error processing variant {variant_data_raw.get('id')} for product {product.id}: {e}", exc_info=True)
+
     return await get_product_by_platform_id(db, product_data['store_id'], product_data['platform_product_id'])
 
 async def upsert_order(db: AsyncSession, order_data: dict):

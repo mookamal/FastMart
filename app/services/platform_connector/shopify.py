@@ -343,13 +343,12 @@ class ShopifyConnector(EcommercePlatformConnector):
             # Store processed discount applications for analytics
             'discount_applications': processed_discounts,
             # Line items need separate mapping and linking
-            # 'raw_line_items': platform_order_data.get('line_items', [])
+            # 'line_items': platform_order_data.get('line_items', [])
         }
 
     async def map_product_to_db_model(
         self,
         platform_product_data: Dict,
-        # store_id: uuid.UUID
     ) -> Dict:
         """Transform Shopify product data into our database model format (excluding IDs)."""
         return {
@@ -360,13 +359,12 @@ class ShopifyConnector(EcommercePlatformConnector):
             'platform_created_at': self._parse_datetime(platform_product_data.get('created_at')),
             'platform_updated_at': self._parse_datetime(platform_product_data.get('updated_at')),
             # Variants might need separate handling if storing variant-level details
-            # 'variants': platform_product_data.get('variants', []) # Include variants for potential line item mapping
+            'variants': platform_product_data.get('variants', []) # Include variants for potential line item mapping
         }
 
     async def map_customer_to_db_model(
         self,
         platform_customer_data: Dict,
-        # store_id: uuid.UUID
     ) -> Dict:
         """Transform Shopify customer data into our database model format (excluding IDs)."""
         return {
@@ -380,7 +378,32 @@ class ShopifyConnector(EcommercePlatformConnector):
             'platform_updated_at': self._parse_datetime(platform_customer_data.get('updated_at')),
             'tags': platform_customer_data.get('tags', '').split(',') if platform_customer_data.get('tags') else [],
         }
-
+    async def map_product_variant_to_db_model(
+        self,
+        platform_variant_data: Dict,
+        # product_id: uuid.UUID # product_id is handled by the caller/sync process
+    ) -> Dict:
+        """Transform Shopify product variant data into our database model format (excluding IDs)."""
+        return {
+            'platform_variant_id': str(platform_variant_data.get('id')),
+            'title': platform_variant_data.get('title'),
+            'sku': platform_variant_data.get('sku'),
+            'price': self._safe_decimal(platform_variant_data.get('price')),
+            'compare_at_price': self._safe_decimal(platform_variant_data.get('compare_at_price')),
+            'position': int(platform_variant_data.get('position', 1)),
+            'inventory_item_id': str(platform_variant_data.get('inventory_item_id')) if platform_variant_data.get('inventory_item_id') else None,
+            'inventory_quantity': int(platform_variant_data.get('inventory_quantity', 0)),
+            'weight': self._safe_decimal(platform_variant_data.get('weight')),
+            'weight_unit': platform_variant_data.get('weight_unit'),
+            'option1': platform_variant_data.get('option1'),
+            'option2': platform_variant_data.get('option2'),
+            'option3': platform_variant_data.get('option3'),
+            'taxable': platform_variant_data.get('taxable', True),
+            'barcode': platform_variant_data.get('barcode'),
+            'image_id': str(platform_variant_data.get('image_id')) if platform_variant_data.get('image_id') else None,
+            'platform_created_at': self._parse_datetime(platform_variant_data.get('created_at')),
+            'platform_updated_at': self._parse_datetime(platform_variant_data.get('updated_at')),
+        }
     # Placeholder for line item mapping if needed later
     async def map_line_item_to_db_model(
         self,
