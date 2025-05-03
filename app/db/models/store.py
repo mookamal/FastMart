@@ -12,6 +12,7 @@ class Store(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     platform = Column(String(50), nullable=False, default="shopify", index=True)
+    currency = Column(String(3), default='USD', nullable=False)
     shop_domain = Column(String(255), nullable=False)
     _access_token = Column('access_token', Text, nullable=False)
     scope = Column(Text, nullable=True)
