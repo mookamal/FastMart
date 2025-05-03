@@ -144,22 +144,6 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
 
 
 
-async def resolve_customers(info: Info, store_id: str, limit: int = 20, offset: int = 0, 
-                          sort_by: Optional[str] = None, sort_desc: bool = False, 
-                          search: Optional[str] = None) -> CustomerConnection:
-    """Resolver for the customers query that returns paginated customers with analytics data."""
-    context = info.context
-    db: AsyncSession = context["db"]
-    return await CustomerResolver.get_customers_connection(
-        store_id=store_id,
-        limit=limit,
-        offset=offset,
-        sort_by=sort_by,
-        sort_desc=sort_desc,
-        search=search,
-        db=db
-    )
-
 
 async def resolve_customer_last_order_date(customer_id: str, info: Info) -> Optional[DateTime]:
     """Resolver for the dateOfLastOrder field on the Customer type."""
