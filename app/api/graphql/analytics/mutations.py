@@ -9,6 +9,8 @@ from app.db.models.product_variant import ProductVariant as ProductVariantModel
 from app.db.models.order import Order as OrderModel
 from app.db.models.ad_spend import AdSpend as AdSpendModel
 from app.db.models.other_cost import OtherCost as OtherCostModel
+from app.db.models.shipping_cost_rule import ShippingCostRule as ShippingCostRuleModel
+from app.db.models.transaction_fee_rule import TransactionFeeRule as TransactionFeeRuleModel
 from app.api.graphql.types.scalars import Numeric, Date
 from app.api.graphql.analytics.types import (
     ProductVariantCogsInput, 
@@ -18,7 +20,9 @@ from app.api.graphql.analytics.types import (
     TransactionFeeRuleInput,
     ProductVariant,
     AdSpend,
-    OtherCost
+    OtherCost,
+    ShippingCostRule,
+    TransactionFeeRule
 )
 
 @strawberry.type
@@ -233,6 +237,207 @@ class AnalyticsMutation:
         
         if cost:
             await db.delete(cost)
+            await db.commit()
+            return True
+        
+        return False
+    
+    @strawberry.mutation
+    async def add_shipping_cost_rule(
+        self, 
+        info: Info, 
+        input: ShippingCostRuleInput
+    ) -> ShippingCostRule:
+        """Add a new shipping cost rule."""
+        db: AsyncSession = info.context["db"]
+        store_uuid = UUID(input.store_id)
+        
+        # If this is a default rule, unset any existing default rules
+        if input.is_default:
+            query = select(ShippingCostRuleModel).where(
+                ShippingCostRuleModel.store_id == store_uuid,
+                ShippingCostRuleModel.is_default == True
+            )
+            result = await db.execute(query)
+            existing_default_rules = result.scalars().all()
+            
+            for rule in existing_default_rules:
+                rule.is_default = False
+        
+        # Create a new shipping cost rule
+        new_rule = ShippingCostRuleModel(
+            store_id=store_uuid,
+            name=input.name,
+            base_cost=input.base_cost,
+            per_item_cost=input.per_item_cost,
+            is_default=input.is_default
+        )
+        
+        db.add(new_rule)
+        await db.commit()
+        await db.refresh(new_rule)
+        
+        # Return the created rule
+        return ShippingCostRule(
+            id=str(new_rule.id),
+            name=new_rule.name,
+            base_cost=new_rule.base_cost,
+            per_item_cost=new_rule.per_item_cost,
+            is_default=new_rule.is_default
+        )
+    
+    @strawberry.mutation
+    async def update_shipping_cost_rule(
+        self, 
+        info: Info, 
+        id: strawberry.ID,
+        input: ShippingCostRuleInput
+    ) -> ShippingCostRule:
+        """Update an existing shipping cost rule."""
+        db: AsyncSession = info.context["db"]
+        rule_uuid = UUID(id)
+        store_uuid = UUID(input.store_id)
+        
+        # If this is a default rule, unset any existing default rules
+        if input.is_default:
+            query = select(ShippingCostRuleModel).where(
+                ShippingCostRuleModel.store_id == store_uuid,
+                ShippingCostRuleModel.id != rule_uuid,
+                ShippingCostRuleModel.is_default == True
+            )
+            result = await db.execute(query)
+            existing_default_rules = result.scalars().all()
+            
+            for rule in existing_default_rules:
+                rule.is_default = False
+        
+        # Update the rule
+        stmt = update(ShippingCostRuleModel).where(
+            ShippingCostRuleModel.id == rule_uuid
+        ).values(
+            store_id=store_uuid,
+            name=input.name,
+            base_cost=input.base_cost,
+            per_item_cost=input.per_item_cost,
+            is_default=input.is_default
+        ).returning(ShippingCostRuleModel)
+        
+        result = await db.execute(stmt)
+        await db.commit()
+        
+        updated_rule = result.scalar_one()
+        
+        return ShippingCostRule(
+            id=str(updated_rule.id),
+            name=updated_rule.name,
+            base_cost=updated_rule.base_cost,
+            per_item_cost=updated_rule.per_item_cost,
+            is_default=updated_rule.is_default
+        )
+    
+    @strawberry.mutation
+    async def delete_shipping_cost_rule(
+        self, 
+        info: Info, 
+        id: strawberry.ID
+    ) -> bool:
+        """Delete a shipping cost rule."""
+        db: AsyncSession = info.context["db"]
+        rule_uuid = UUID(id)
+        
+        # Delete the rule
+        stmt = select(ShippingCostRuleModel).where(ShippingCostRuleModel.id == rule_uuid)
+        result = await db.execute(stmt)
+        rule = result.scalar_one_or_none()
+        
+        if rule:
+            await db.delete(rule)
+            await db.commit()
+            return True
+        
+        return False
+    
+    @strawberry.mutation
+    async def add_transaction_fee_rule(
+        self, 
+        info: Info, 
+        input: TransactionFeeRuleInput
+    ) -> TransactionFeeRule:
+        """Add a new transaction fee rule."""
+        db: AsyncSession = info.context["db"]
+        store_uuid = UUID(input.store_id)
+        
+        # Create a new transaction fee rule
+        new_rule = TransactionFeeRuleModel(
+            store_id=store_uuid,
+            platform=input.platform,
+            percentage=input.percentage,
+            fixed_fee=input.fixed_fee
+        )
+        
+        db.add(new_rule)
+        await db.commit()
+        await db.refresh(new_rule)
+        
+        # Return the created rule
+        return TransactionFeeRule(
+            id=str(new_rule.id),
+            platform=new_rule.platform,
+            percentage=new_rule.percentage,
+            fixed_fee=new_rule.fixed_fee
+        )
+    
+    @strawberry.mutation
+    async def update_transaction_fee_rule(
+        self, 
+        info: Info, 
+        id: strawberry.ID,
+        input: TransactionFeeRuleInput
+    ) -> TransactionFeeRule:
+        """Update an existing transaction fee rule."""
+        db: AsyncSession = info.context["db"]
+        rule_uuid = UUID(id)
+        store_uuid = UUID(input.store_id)
+        
+        # Update the rule
+        stmt = update(TransactionFeeRuleModel).where(
+            TransactionFeeRuleModel.id == rule_uuid
+        ).values(
+            store_id=store_uuid,
+            platform=input.platform,
+            percentage=input.percentage,
+            fixed_fee=input.fixed_fee
+        ).returning(TransactionFeeRuleModel)
+        
+        result = await db.execute(stmt)
+        await db.commit()
+        
+        updated_rule = result.scalar_one()
+        
+        return TransactionFeeRule(
+            id=str(updated_rule.id),
+            platform=updated_rule.platform,
+            percentage=updated_rule.percentage,
+            fixed_fee=updated_rule.fixed_fee
+        )
+    
+    @strawberry.mutation
+    async def delete_transaction_fee_rule(
+        self, 
+        info: Info, 
+        id: strawberry.ID
+    ) -> bool:
+        """Delete a transaction fee rule."""
+        db: AsyncSession = info.context["db"]
+        rule_uuid = UUID(id)
+        
+        # Delete the rule
+        stmt = select(TransactionFeeRuleModel).where(TransactionFeeRuleModel.id == rule_uuid)
+        result = await db.execute(stmt)
+        rule = result.scalar_one_or_none()
+        
+        if rule:
+            await db.delete(rule)
             await db.commit()
             return True
         
