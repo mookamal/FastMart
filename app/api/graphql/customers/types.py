@@ -2,7 +2,6 @@ from typing import Optional, List
 import strawberry
 from strawberry.scalars import ID
 from app.api.graphql.types.scalars import DateTime, Numeric
-from app.api.graphql.common.inputs import DateRangeInput
 
 @strawberry.type
 class Customer:
