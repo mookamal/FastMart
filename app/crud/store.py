@@ -1,3 +1,4 @@
+from locale import currency
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -21,6 +22,7 @@ async def create_or_update_store(db: AsyncSession, store: StoreCreate) -> Store:
         db_store.access_token = store.access_token # Setter handles encryption
         db_store.scope = store.scope
         db_store.is_active = store.is_active
+        db_store.currency = store.currency
         # updated_at is handled by onupdate=func.now()
     else:
         # Create new store
@@ -30,7 +32,8 @@ async def create_or_update_store(db: AsyncSession, store: StoreCreate) -> Store:
             shop_domain=store.domain,
             access_token=store.access_token, # Setter handles encryption
             scope=store.scope,
-            is_active=store.is_active
+            is_active=store.is_active,
+            currency=store.currency
         )
         db.add(db_store)
 
