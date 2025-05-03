@@ -17,6 +17,7 @@ class Store:
     shop_domain: str
     is_active: bool
     last_sync_at: Optional[DateTime] = None
+    currency: str
     created_at: DateTime
     
     @strawberry.field
