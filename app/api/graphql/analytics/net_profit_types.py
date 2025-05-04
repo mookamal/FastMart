@@ -1,7 +1,6 @@
 import strawberry
 from typing import List
-from strawberry.scalars import ID
-from app.api.graphql.types.scalars import Numeric, Date
+from app.api.graphql.types.scalars import Numeric
 
 @strawberry.type
 class NetProfitMetrics:
@@ -47,16 +46,3 @@ class PnlReport:
     gross_profit: PnlReportItem
     expenses: List[PnlReportItem]
     net_profit: PnlReportItem
-
-@strawberry.type
-class CustomerLtvMetrics:
-    """Type representing customer lifetime value metrics."""
-    customer_id: ID
-    total_orders: int
-    total_revenue: Numeric
-    total_profit: Numeric
-    net_profit_ltv: Numeric
-    average_order_value: Numeric
-    average_profit_per_order: Numeric
-    first_order_date: Date
-    last_order_date: Date

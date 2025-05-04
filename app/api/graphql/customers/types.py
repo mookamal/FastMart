@@ -1,7 +1,7 @@
 from typing import Optional, List
 import strawberry
 from strawberry.scalars import ID
-from app.api.graphql.types.scalars import DateTime, Numeric
+from app.api.graphql.types.scalars import DateTime, Numeric,Date
 
 @strawberry.type
 class Customer:
@@ -38,3 +38,16 @@ class Customer:
     async def tags(self, info) -> Optional[List[str]]:
         from app.api.graphql.customers.resolvers import CustomerResolver
         return await CustomerResolver.get_customer_tags(self.id, info)
+
+@strawberry.type
+class CustomerLtvMetrics:
+    """Type representing customer lifetime value metrics."""
+    customer_id: ID
+    total_orders: int
+    total_revenue: Numeric
+    total_profit: Numeric
+    net_profit_ltv: Numeric
+    average_order_value: Numeric
+    average_profit_per_order: Numeric
+    first_order_date: Date
+    last_order_date: Date

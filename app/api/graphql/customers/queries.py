@@ -2,6 +2,7 @@ import strawberry
 from typing import Optional
 from app.api.graphql.customers.connection import CustomerConnection
 from strawberry.types import Info
+from app.api.graphql.customers.types import CustomerLtvMetrics
 @strawberry.type
 class CustomerQuery:
     @strawberry.field
@@ -21,3 +22,17 @@ class CustomerQuery:
             after=after,
             db=db
         )
+    @strawberry.field
+    async def customer_ltv(
+        self,
+        info,
+        customer_id: strawberry.ID,
+        store_id: strawberry.ID,
+    ) -> CustomerLtvMetrics:
+        from app.api.graphql.customers.resolvers import CustomerResolver
+        return await CustomerResolver.get_customer_ltv(
+            info,
+            customer_id,
+            store_id
+        )
+        

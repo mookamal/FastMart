@@ -1,10 +1,9 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from uuid import UUID
-from sqlalchemy import func, select, and_, desc, text
+from sqlalchemy import func, select, and_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from strawberry.types import Info
-
+from app.api.graphql.customers.types import CustomerLtvMetrics
 from app.db.models.customer import Customer as CustomerModel
 from app.db.models.order import Order as OrderModel
 from app.api.graphql.customers.types import Customer
@@ -12,6 +11,7 @@ from app.api.graphql.customers.connection import CustomerConnection, CustomerEdg
 from app.api.graphql.types.scalars import DateTime, Numeric
 from app.api.graphql.resolvers import BaseResolver
 from app.api.graphql.common.connection import encode_cursor, decode_cursor
+from app.services.analytics.profit_calculator import ProfitCalculator
 
 class CustomerResolver(BaseResolver[CustomerModel, Customer]):
     """Resolver for Customer-related operations."""
@@ -143,3 +143,88 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
 
         except Exception as e:
             raise ValueError(f"Error retrieving customers: {str(e)}")
+
+    @classmethod
+    async def get_customer_ltv(cls,info: Info, customer_id: str, store_id: str) -> CustomerLtvMetrics:
+        """Resolver for customer lifetime value metrics.
+        
+        Args:
+            info: GraphQL resolver info
+            customer_id: Customer ID
+            store_id: Store ID
+            
+        Returns:
+            CustomerLtvMetrics object containing LTV data
+        """
+        db: AsyncSession = cls.get_db_from_info(info)
+        
+        # Convert IDs to UUID
+        customer_uuid = UUID(customer_id)
+        store_uuid = UUID(store_id)
+        
+        # Query to get all orders for this customer
+        from app.db.models.order import Order
+        
+        # Get all orders for this customer
+        query = select(Order).where(
+            and_(
+                Order.store_id == store_uuid,
+                Order.customer_id == customer_uuid
+            )
+        ).order_by(Order.processed_at)
+        
+        result = await db.execute(query)
+        orders = result.scalars().all()
+        
+        if not orders:
+            # Return default values if no orders found
+            return CustomerLtvMetrics(
+                customer_id=customer_id,
+                total_orders=0,
+                total_revenue=0,
+                total_profit=0,
+                net_profit_ltv=0,
+                average_order_value=0,
+                average_profit_per_order=0,
+                first_order_date=None,
+                last_order_date=None
+            )
+        
+        # Calculate metrics
+        total_orders = len(orders)
+        total_revenue = sum(order.total_price for order in orders)
+        
+        # Calculate profit for each order
+        total_profit = 0
+        for order in orders:
+            # Get order date range
+            order_date = order.processed_at
+            # Calculate profit for this order
+            profit_data = await ProfitCalculator.calculate_net_profit(
+                db=db,
+                store_id=store_id,
+                start_date=order_date,
+                end_date=order_date
+            )
+            total_profit += profit_data["net_profit"]
+        
+        # Calculate averages
+        average_order_value = total_revenue / total_orders if total_orders > 0 else 0
+        average_profit_per_order = total_profit / total_orders if total_orders > 0 else 0
+        
+        # Get first and last order dates
+        first_order_date = orders[0].processed_at.date()
+        last_order_date = orders[-1].processed_at.date()
+        
+        # Return customer LTV metrics
+        return CustomerLtvMetrics(
+            customer_id=customer_id,
+            total_orders=total_orders,
+            total_revenue=total_revenue,
+            total_profit=total_profit,
+            net_profit_ltv=total_profit,  # Net profit LTV is the total profit from all orders
+            average_order_value=average_order_value,
+            average_profit_per_order=average_profit_per_order,
+            first_order_date=first_order_date,
+            last_order_date=last_order_date
+        )

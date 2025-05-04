@@ -2,7 +2,7 @@ import strawberry
 from typing import Optional, List
 from app.api.graphql.common.inputs import DateRangeInput
 from app.api.graphql.analytics.types import ProductVariantAnalytics, DiscountCodeAnalytics, AdSpend, OtherCost
-from app.api.graphql.analytics.net_profit_types import NetProfitMetrics, PnlReport, CustomerLtvMetrics
+from app.api.graphql.analytics.net_profit_types import NetProfitMetrics, PnlReport
 @strawberry.type
 class AnalyticsQuery:
     @strawberry.field
@@ -45,17 +45,7 @@ class AnalyticsQuery:
     ) -> PnlReport:
         from app.api.graphql.analytics.net_profit_resolvers import resolve_profit_and_loss_report
         return await resolve_profit_and_loss_report(info, store_id, date_range)
-    
-    @strawberry.field
-    async def customer_ltv(
-        self,
-        info,
-        customer_id: strawberry.ID,
-        store_id: strawberry.ID,
-    ) -> CustomerLtvMetrics:
-        from app.api.graphql.analytics.net_profit_resolvers import resolve_customer_ltv
-        return await resolve_customer_ltv(info, customer_id, store_id)
-    
+        
     @strawberry.field
     async def ad_spend_entries(
         self,

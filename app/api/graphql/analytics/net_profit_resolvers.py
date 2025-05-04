@@ -3,12 +3,12 @@ from uuid import UUID
 from datetime import datetime
 from strawberry.types import Info
 
-from app.api.graphql.analytics.net_profit_types import NetProfitMetrics, PnlReport, PnlReportItem, CustomerLtvMetrics
+from app.api.graphql.analytics.net_profit_types import NetProfitMetrics, PnlReport, PnlReportItem
 from app.services.analytics.profit_calculator import ProfitCalculator
 from app.api.graphql.common.inputs import DateRangeInput
 from app.db.models.ad_spend import AdSpend
 from app.db.models.other_cost import OtherCost
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, and_
 from app.api.graphql.analytics.types import AdSpend as AdSpendType, OtherCost as OtherCostType
 
 async def resolve_net_profit_analytics(info: Info, store_id: str, date_range: DateRangeInput) -> NetProfitMetrics:
@@ -140,90 +140,7 @@ async def resolve_profit_and_loss_report(info: Info, store_id: str, date_range: 
         net_profit=net_profit_item
     )
 
-async def resolve_customer_ltv(info: Info, customer_id: str, store_id: str) -> CustomerLtvMetrics:
-    """Resolver for customer lifetime value metrics.
-    
-    Args:
-        info: GraphQL resolver info
-        customer_id: Customer ID
-        store_id: Store ID
-        
-    Returns:
-        CustomerLtvMetrics object containing LTV data
-    """
-    context = info.context
-    db = context["db"]
-    
-    # Convert IDs to UUID
-    customer_uuid = UUID(customer_id)
-    store_uuid = UUID(store_id)
-    
-    # Query to get all orders for this customer
-    from app.db.models.order import Order
-    
-    # Get all orders for this customer
-    query = select(Order).where(
-        and_(
-            Order.store_id == store_uuid,
-            Order.customer_id == customer_uuid
-        )
-    ).order_by(Order.processed_at)
-    
-    result = await db.execute(query)
-    orders = result.scalars().all()
-    
-    if not orders:
-        # Return default values if no orders found
-        return CustomerLtvMetrics(
-            customer_id=customer_id,
-            total_orders=0,
-            total_revenue=0,
-            total_profit=0,
-            net_profit_ltv=0,
-            average_order_value=0,
-            average_profit_per_order=0,
-            first_order_date=None,
-            last_order_date=None
-        )
-    
-    # Calculate metrics
-    total_orders = len(orders)
-    total_revenue = sum(order.total_price for order in orders)
-    
-    # Calculate profit for each order
-    total_profit = 0
-    for order in orders:
-        # Get order date range
-        order_date = order.processed_at
-        # Calculate profit for this order
-        profit_data = await ProfitCalculator.calculate_net_profit(
-            db=db,
-            store_id=store_id,
-            start_date=order_date,
-            end_date=order_date
-        )
-        total_profit += profit_data["net_profit"]
-    
-    # Calculate averages
-    average_order_value = total_revenue / total_orders if total_orders > 0 else 0
-    average_profit_per_order = total_profit / total_orders if total_orders > 0 else 0
-    
-    # Get first and last order dates
-    first_order_date = orders[0].processed_at.date()
-    last_order_date = orders[-1].processed_at.date()
-    
-    # Return customer LTV metrics
-    return CustomerLtvMetrics(
-        customer_id=customer_id,
-        total_orders=total_orders,
-        total_revenue=total_revenue,
-        total_profit=total_profit,
-        net_profit_ltv=total_profit,  # Net profit LTV is the total profit from all orders
-        average_order_value=average_order_value,
-        average_profit_per_order=average_profit_per_order,
-        first_order_date=first_order_date,
-        last_order_date=last_order_date
-    )
+
 
 async def resolve_ad_spend_entries(info: Info, store_id: str, date_range: Optional[DateRangeInput] = None) -> List[AdSpendType]:
     """Resolver to retrieve ad spend entries."""
