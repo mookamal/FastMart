@@ -115,10 +115,10 @@ class AnalyticsMutation:
         self, 
         info: Info, 
         inputs: List[AdSpendInput]
-    ) -> List[AdSpend]:
+    ) -> bool:
         """Add ad spend records."""
         db: AsyncSession = info.context["db"]
-        added_records = []
+        success = False
         
         for input_item in inputs:
             store_uuid = UUID(input_item.store_id)
@@ -135,16 +135,8 @@ class AnalyticsMutation:
             db.add(new_ad_spend)
             await db.flush()
             
-            added_records.append(AdSpend(
-                id=str(new_ad_spend.id),
-                platform=new_ad_spend.platform,
-                date=new_ad_spend.date,
-                spend=new_ad_spend.spend,
-                campaign_name=new_ad_spend.campaign_name
-            ))
-        
         await db.commit()
-        return added_records
+        return success
     
     @strawberry.mutation
     async def add_other_cost(
