@@ -118,7 +118,7 @@ class AnalyticsMutation:
     ) -> bool:
         """Add ad spend records."""
         db: AsyncSession = info.context["db"]
-        success = False
+
         
         for input_item in inputs:
             store_uuid = UUID(input_item.store_id)
@@ -136,7 +136,8 @@ class AnalyticsMutation:
             await db.flush()
             
         await db.commit()
-        return success
+
+        return True
     
     @strawberry.mutation
     async def add_other_cost(
