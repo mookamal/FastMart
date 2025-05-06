@@ -94,13 +94,41 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
         """Get a paginated connection of customers."""
         try:
             store_uuid = UUID(store_id)
-            query = select(cls.model_class).where(cls.model_class.store_id == store_uuid)
+            # Always apply consistent ordering for pagination to work properly
+            query = select(cls.model_class).where(cls.model_class.store_id == store_uuid).order_by(cls.model_class.id)
 
-            # Apply cursor-based pagination
-            if after:
-                cursor_value = decode_cursor(after)
-                # Assuming cursor is the customer ID
-                query = query.where(cls.model_class.id > UUID(cursor_value))
+            # Track if we're using cursor-based pagination
+            has_valid_cursor = False
+            
+            # Apply cursor-based pagination only if after is a non-empty string
+            if after and after.strip():
+                try:
+                    cursor_value = decode_cursor(after)
+                    # Assuming cursor is the customer ID
+                    # Instead of using > operator with UUID, get the customer with this ID first
+                    # and then filter for customers that come after it in the ordering
+                    cursor_customer_query = select(cls.model_class).where(
+                        and_(
+                            cls.model_class.store_id == store_uuid,
+                            cls.model_class.id == UUID(cursor_value)
+                        )
+                    )
+                    cursor_result = await db.execute(cursor_customer_query)
+                    cursor_customer = cursor_result.scalar_one_or_none()
+                    
+                    if cursor_customer:
+                        # Add ordering to the main query to ensure consistent pagination
+                        query = query.order_by(cls.model_class.id)
+                        # Filter for customers that come after the cursor customer
+                        query = query.where(cls.model_class.id > cursor_customer.id)
+                        has_valid_cursor = True
+                    else:
+                        # Log that we couldn't find the customer with the cursor ID
+                        print(f"Warning: Could not find customer with ID {cursor_value}")
+                except Exception as e:
+                    # If cursor decoding fails, log the error and ignore the cursor
+                    print(f"Error decoding cursor: {str(e)}")
+                    pass
 
             # Apply limit
             query = query.limit(first + 1)  # +1 to check if there's a next page
@@ -127,7 +155,7 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
                 start_cursor=start_cursor,
                 end_cursor=end_cursor,
                 has_next_page=has_next_page,
-                has_previous_page=after is not None
+                has_previous_page=has_valid_cursor  # Only true if we have a valid cursor
             )
             # Get total count
             total_count_query = select(func.count()).select_from(cls.model_class).where(cls.model_class.store_id == store_uuid)
