@@ -3,6 +3,7 @@ from typing import Optional, List
 from strawberry.types import Info
 from app.api.graphql.products.types import Product
 from app.api.graphql.common.connection import Connection
+from app.api.graphql.permissions import StoreOwnerPermission
 
 @strawberry.type
 class ProductQuery:

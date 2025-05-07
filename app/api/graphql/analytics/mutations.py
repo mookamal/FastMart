@@ -1,17 +1,17 @@
 import strawberry
-from typing import List, Optional
+from typing import List
 from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from strawberry.types import Info
-
+from app.api.graphql.permissions import StoreOwnerPermission
 from app.db.models.product_variant import ProductVariant as ProductVariantModel
 from app.db.models.order import Order as OrderModel
 from app.db.models.ad_spend import AdSpend as AdSpendModel
 from app.db.models.other_cost import OtherCost as OtherCostModel
 from app.db.models.shipping_cost_rule import ShippingCostRule as ShippingCostRuleModel
 from app.db.models.transaction_fee_rule import TransactionFeeRule as TransactionFeeRuleModel
-from app.api.graphql.types.scalars import Numeric, Date
+from app.api.graphql.types.scalars import Numeric
 from app.api.graphql.analytics.types import (
     ProductVariantCogsInput, 
     AdSpendInput, 
@@ -19,7 +19,6 @@ from app.api.graphql.analytics.types import (
     ShippingCostRuleInput,
     TransactionFeeRuleInput,
     ProductVariant,
-    AdSpend,
     OtherCost,
     ShippingCostRule,
     TransactionFeeRule
