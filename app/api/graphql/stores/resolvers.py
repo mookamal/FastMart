@@ -21,19 +21,11 @@ async def resolve_store(info: Info, id: str) -> Store:
     context = info.context
     db: AsyncSession = context["db"]
     
-    # Get the current user from the request context using JWT authentication
-    current_user = await get_current_user(context["request"], db)
-    if not current_user:
-        raise ValueError("Authentication required")
-    
     # Query the database for the store
+    # Note: Permission check is now handled by StoreOwnerPermission class
     store_model = await db.get(StoreModel, UUID(id))
     if not store_model:
         raise ValueError("Store not found")
-    
-    # Verify the current user is the owner of the store
-    if store_model.user_id != current_user.id:
-        raise ValueError("Unauthorized access to store")
     
     # Convert the model to a GraphQL type
     return Store(

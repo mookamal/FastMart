@@ -2,10 +2,11 @@ import strawberry
 from strawberry.types import Info
 from strawberry.scalars import ID
 from app.api.graphql.stores.types import Store
+from app.api.graphql.permissions import StoreOwnerPermission
 
 @strawberry.type
 class StoreQuery:
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def store(self, info: Info, id: ID) -> Store:
         from app.api.graphql.stores.resolvers import resolve_store
         return await resolve_store(info, id)

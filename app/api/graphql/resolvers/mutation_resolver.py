@@ -17,20 +17,12 @@ async def resolve_disconnect_store(info: Info, store_id: str) -> bool:
     context = info.context
     db: AsyncSession = context["db"]
     
-    # Get the current authenticated user
-    current_user = await get_current_user(context["request"], db)
-    if not current_user:
-        raise ValueError("Authentication required")
-    
     try:
         # Get the store
+        # Note: Permission check is now handled by StoreOwnerPermission class
         store_model = await db.get(StoreModel, UUID(store_id))
         if not store_model:
             raise ValueError("Store not found")
-        
-        # Verify ownership
-        if store_model.user_id != current_user.id:
-            raise ValueError("Unauthorized: You don't own this store")
         
         # Set the store to inactive
         store_model.is_active = False
@@ -53,20 +45,12 @@ async def resolve_trigger_store_sync(info: Info, store_id: str) -> bool:
     context = info.context
     db: AsyncSession = context["db"]
     
-    # Get the current authenticated user
-    current_user = await get_current_user(context["request"], db)
-    if not current_user:
-        raise ValueError("Authentication required")
-    
     try:
         # Get the store
+        # Note: Permission check is now handled by StoreOwnerPermission class
         store_model = await db.get(StoreModel, UUID(store_id))
         if not store_model:
             raise ValueError("Store not found")
-        
-        # Verify ownership
-        if store_model.user_id != current_user.id:
-            raise ValueError("Unauthorized: You don't own this store")
         
         # Verify the store is active
         if not store_model.is_active:

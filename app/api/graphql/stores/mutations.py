@@ -1,7 +1,7 @@
 import strawberry
 from strawberry.types import Info
 from strawberry.scalars import ID
-from app.api.graphql.stores.types import Store
+from app.api.graphql.permissions import StoreOwnerPermission
 
 @strawberry.type
 class StoreMutation:
@@ -10,7 +10,7 @@ class StoreMutation:
         from app.api.graphql.resolvers.mutation_resolver import resolve_gen_link_shopify
         return await resolve_gen_link_shopify(info, shop_domain)
         
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def disconnect_store(
         self, 
         info: Info, 
@@ -19,7 +19,7 @@ class StoreMutation:
         from app.api.graphql.resolvers.mutation_resolver import resolve_disconnect_store
         return await resolve_disconnect_store(info, store_id)
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def trigger_store_sync(
         self, 
         info: Info, 

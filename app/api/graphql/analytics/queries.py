@@ -3,6 +3,7 @@ from typing import Optional, List
 from app.api.graphql.common.inputs import DateRangeInput
 from app.api.graphql.analytics.types import ProductVariantAnalytics, DiscountCodeAnalytics, AdSpend, OtherCost
 from app.api.graphql.analytics.net_profit_types import NetProfitMetrics, PnlReport
+from app.api.graphql.permissions import StoreOwnerPermission
 @strawberry.type
 class AnalyticsQuery:
     @strawberry.field
@@ -36,7 +37,7 @@ class AnalyticsQuery:
         from app.api.graphql.analytics.net_profit_resolvers import resolve_net_profit_analytics
         return await resolve_net_profit_analytics(info, store_id, date_range)
     
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def profit_and_loss_report(
         self,
         info,
