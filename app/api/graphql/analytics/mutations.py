@@ -27,7 +27,7 @@ from app.api.graphql.analytics.types import (
 
 @strawberry.type
 class AnalyticsMutation:
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def update_product_variant_cogs(
         self, 
         info: Info, 
@@ -57,7 +57,7 @@ class AnalyticsMutation:
             cost_of_goods_sold=updated_variant.cost_of_goods_sold
         )
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def bulk_update_cogs(
         self, 
         info: Info, 
@@ -87,7 +87,7 @@ class AnalyticsMutation:
         await db.commit()
         return updated_variants
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def update_order_shipping_cost(
         self, 
         info: Info, 
@@ -110,7 +110,7 @@ class AnalyticsMutation:
         
         return True
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def add_ad_spend(
         self, 
         info: Info, 
@@ -139,7 +139,7 @@ class AnalyticsMutation:
 
         return True
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def add_other_cost(
         self, 
         info: Info, 
@@ -173,7 +173,7 @@ class AnalyticsMutation:
             frequency=new_other_cost.frequency
         )
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def update_other_cost(
         self, 
         info: Info, 
@@ -213,7 +213,7 @@ class AnalyticsMutation:
             frequency=updated_cost.frequency
         )
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def delete_other_cost(
         self, 
         info: Info, 
@@ -235,7 +235,7 @@ class AnalyticsMutation:
         
         return False
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def add_shipping_cost_rule(
         self, 
         info: Info, 
@@ -279,7 +279,7 @@ class AnalyticsMutation:
             is_default=new_rule.is_default
         )
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def update_shipping_cost_rule(
         self, 
         info: Info, 
@@ -328,7 +328,7 @@ class AnalyticsMutation:
             is_default=updated_rule.is_default
         )
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def delete_shipping_cost_rule(
         self, 
         info: Info, 
@@ -350,7 +350,7 @@ class AnalyticsMutation:
         
         return False
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def add_transaction_fee_rule(
         self, 
         info: Info, 
@@ -380,7 +380,7 @@ class AnalyticsMutation:
             fixed_fee=new_rule.fixed_fee
         )
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def update_transaction_fee_rule(
         self, 
         info: Info, 
@@ -414,7 +414,7 @@ class AnalyticsMutation:
             fixed_fee=updated_rule.fixed_fee
         )
     
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[StoreOwnerPermission])
     async def delete_transaction_fee_rule(
         self, 
         info: Info, 

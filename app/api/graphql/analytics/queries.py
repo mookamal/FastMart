@@ -6,7 +6,7 @@ from app.api.graphql.analytics.net_profit_types import NetProfitMetrics, PnlRepo
 from app.api.graphql.permissions import StoreOwnerPermission
 @strawberry.type
 class AnalyticsQuery:
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def product_variant_analytics(
         self, 
         info, 
@@ -16,7 +16,7 @@ class AnalyticsQuery:
         from app.api.graphql.analytics.resolvers import resolve_product_variant_analytics
         return await resolve_product_variant_analytics(store_id, date_range, info)
 
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def discount_code_analytics(
         self,
         info,
@@ -27,7 +27,7 @@ class AnalyticsQuery:
         from app.api.graphql.analytics.resolvers import resolve_discount_code_analytics
         return await resolve_discount_code_analytics(info, store_id, date_range, limit)
             
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def net_profit_analytics(
         self,
         info,
@@ -47,7 +47,7 @@ class AnalyticsQuery:
         from app.api.graphql.analytics.net_profit_resolvers import resolve_profit_and_loss_report
         return await resolve_profit_and_loss_report(info, store_id, date_range)
         
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def ad_spend_entries(
         self,
         info,
@@ -57,7 +57,7 @@ class AnalyticsQuery:
         from app.api.graphql.analytics.net_profit_resolvers import resolve_ad_spend_entries
         return await resolve_ad_spend_entries(info, store_id, date_range)
     
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def other_cost_entries(
         self,
         info,

@@ -6,7 +6,7 @@ from app.api.graphql.common.connection import Connection
 
 @strawberry.type
 class ProductQuery:
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def product(self, info: Info, id: strawberry.ID) -> Optional[Product]:
         """Get a product by ID."""
         from app.api.graphql.products.resolvers import ProductResolver
@@ -16,14 +16,14 @@ class ProductQuery:
             return None
         return ProductResolver.to_graphql_type(product_model)
     
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def products(self, info: Info, store_id: strawberry.ID) -> List[Product]:
         """Get all products for a store."""
         from app.api.graphql.products.resolvers import ProductResolver
         db = ProductResolver.get_db_from_info(info)
         return await ProductResolver.get_products_by_store_id(store_id, db)
     
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def products_connection(
         self, 
         info: Info, 

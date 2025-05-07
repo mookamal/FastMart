@@ -5,7 +5,7 @@ from strawberry.types import Info
 from app.api.graphql.customers.types import CustomerLtvMetrics
 @strawberry.type
 class CustomerQuery:
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def customers_connection(
         self, 
         info: Info, 
@@ -22,7 +22,7 @@ class CustomerQuery:
             after=after,
             db=db
         )
-    @strawberry.field
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def customer_ltv(
         self,
         info,
