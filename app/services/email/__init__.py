@@ -1,0 +1,1 @@
+# Email service module for handling various email operations

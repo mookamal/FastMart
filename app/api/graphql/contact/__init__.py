@@ -1,0 +1,1 @@
+# Contact module for contact-related GraphQL types and mutations
