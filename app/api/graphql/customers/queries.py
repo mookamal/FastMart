@@ -2,7 +2,6 @@ import strawberry
 from typing import Optional
 from app.api.graphql.customers.connection import CustomerConnection
 from strawberry.types import Info
-from app.api.graphql.customers.types import CustomerLtvMetrics
 from app.api.graphql.permissions import StoreOwnerPermission
 @strawberry.type
 class CustomerQuery:
@@ -23,4 +22,4 @@ class CustomerQuery:
             after=after,
             db=db
         )
-        
+    
