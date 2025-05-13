@@ -205,16 +205,6 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
         orders = result.scalars().all()
         
         if not orders:
-            # Get customer's total spent from database even if no orders found
-            customer_query = select(cls.model_class.total_spent).where(
-                and_(
-                    cls.model_class.id == customer_uuid,
-                    cls.model_class.store_id == store_uuid
-                )
-            )
-            customer_result = await db.execute(customer_query)
-            total_spent = customer_result.scalar() or 0
-            
             # Return default values if no orders found
             return CustomerLtvMetrics(
                 customer_id=customer_id,
@@ -224,7 +214,6 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
                 net_profit_ltv=0,
                 average_order_value=0,
                 average_profit_per_order=0,
-                total_spent=total_spent,
                 first_order_date=None,
                 last_order_date=None
             )
@@ -255,16 +244,6 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
         first_order_date = orders[0].processed_at.date()
         last_order_date = orders[-1].processed_at.date()
         
-        # Get customer's total spent from database
-        customer_query = select(cls.model_class.total_spent).where(
-            and_(
-                cls.model_class.id == customer_uuid,
-                cls.model_class.store_id == store_uuid
-            )
-        )
-        customer_result = await db.execute(customer_query)
-        total_spent = customer_result.scalar() or 0
-        
         # Return customer LTV metrics
         return CustomerLtvMetrics(
             customer_id=customer_id,
@@ -274,7 +253,6 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
             net_profit_ltv=total_profit,  # Net profit LTV is the total profit from all orders
             average_order_value=average_order_value,
             average_profit_per_order=average_profit_per_order,
-            total_spent=total_spent,
             first_order_date=first_order_date,
             last_order_date=last_order_date
         )
