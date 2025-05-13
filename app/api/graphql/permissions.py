@@ -31,7 +31,7 @@ class StoreOwnerPermission(strawberry.BasePermission):
             return False
         
         # Get the store_id from the arguments
-        store_id = kwargs.get("id") or kwargs.get("store_id")
+        store_id = kwargs.get("store_id")
         if not store_id:
             return False
         
