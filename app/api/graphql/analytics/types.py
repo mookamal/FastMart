@@ -67,7 +67,6 @@ class ProductVariantCogsInput:
 @strawberry.input
 class AdSpendInput:
     """Input type for adding ad spend records."""
-    store_id: strawberry.ID
     platform: str
     date: Date
     spend: Numeric

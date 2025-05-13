@@ -113,14 +113,15 @@ class AnalyticsMutation:
     async def add_ad_spend(
         self, 
         info: Info, 
-        inputs: List[AdSpendInput]
+        inputs: List[AdSpendInput],
+        store_id: strawberry.ID
     ) -> bool:
         """Add ad spend records."""
         db: AsyncSession = info.context["db"]
 
         
         for input_item in inputs:
-            store_uuid = UUID(input_item.store_id)
+            store_uuid = UUID(store_id)
             
             # Create new ad spend record
             new_ad_spend = AdSpendModel(
