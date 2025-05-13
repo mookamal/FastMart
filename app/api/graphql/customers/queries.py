@@ -23,17 +23,4 @@ class CustomerQuery:
             after=after,
             db=db
         )
-    @strawberry.field(permission_classes=[StoreOwnerPermission])
-    async def customer_ltv(
-        self,
-        info,
-        customer_id: strawberry.ID,
-        store_id: strawberry.ID,
-    ) -> CustomerLtvMetrics:
-        from app.api.graphql.customers.resolvers import CustomerResolver
-        return await CustomerResolver.get_customer_ltv(
-            info,
-            customer_id,
-            store_id
-        )
         

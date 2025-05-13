@@ -28,55 +28,14 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
             email=model.email,
             first_name=model.first_name,
             last_name=model.last_name,
-            orders_count=model.orders_count,
-            total_spent=model.total_spent,
             platform_created_at=model.platform_created_at,
             platform_updated_at=model.platform_updated_at,
-            synced_at=model.synced_at
+            synced_at=model.synced_at,
+            store_id=str(model.store_id)
         )
     
-    @classmethod
-    async def get_customer_last_order_date(cls, customer_id: str,info: Info) -> Optional[DateTime]:
-        """Get the date of the customer's last order."""
-        try:
-            db: AsyncSession = cls.get_db_from_info(info)
-            # Convert string ID to UUID
-            customer_uuid = UUID(customer_id)
-            
-            # Query for the most recent order
-            query = select(OrderModel.processed_at).where(
-                OrderModel.customer_id == customer_uuid
-            ).order_by(desc(OrderModel.processed_at)).limit(1)
-            
-            result = await db.execute(query)
-            last_order_date = result.scalar()
-            
-            return last_order_date
-        except Exception as e:
-            raise ValueError(f"Error retrieving customer's last order date: {str(e)}")
-    
-    @classmethod
-    async def get_customer_lifetime_value(cls, customer_id: str,info: Info) -> Numeric:
-        """Get the customer's lifetime value.
-        
-        For this implementation, we'll use a simple LTV calculation based on total spent,
-        but this could be enhanced with more sophisticated calculations in the future.
-        """
-        try:
-            db: AsyncSession = cls.get_db_from_info(info)
-            # Convert string ID to UUID
-            customer_uuid = UUID(customer_id)
-            
-            # Query for the customer's total spent
-            query = select(cls.model_class.total_spent).where(cls.model_class.id == customer_uuid)
-            result = await db.execute(query)
-            total_spent = result.scalar() or 0
-            
-            # For now, LTV is simply the total spent
-            # This could be enhanced with more complex calculations in the future
-            return total_spent
-        except Exception as e:
-            raise ValueError(f"Error retrieving customer's lifetime value: {str(e)}")
+    # Removed get_customer_last_order_date and get_customer_lifetime_value methods
+    # as they are now part of the CustomerLtvMetrics accessible via ltv_metrics field
     
     @classmethod
     async def get_customer_tags(cls, customer_id: str,info:Info) -> Optional[List[str]]:
@@ -209,7 +168,7 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
             return CustomerLtvMetrics(
                 customer_id=customer_id,
                 total_orders=0,
-                total_revenue=0,
+                total_spent=0,
                 total_profit=0,
                 net_profit_ltv=0,
                 average_order_value=0,
@@ -220,7 +179,7 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
         
         # Calculate metrics
         total_orders = len(orders)
-        total_revenue = sum(order.total_price for order in orders)
+        total_spent = sum(order.total_price for order in orders)
         
         # Calculate profit for each order
         total_profit = 0
@@ -237,7 +196,7 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
             total_profit += profit_data["net_profit"]
         
         # Calculate averages
-        average_order_value = total_revenue / total_orders if total_orders > 0 else 0
+        average_order_value = total_spent / total_orders if total_orders > 0 else 0
         average_profit_per_order = total_profit / total_orders if total_orders > 0 else 0
         
         # Get first and last order dates
@@ -248,7 +207,7 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
         return CustomerLtvMetrics(
             customer_id=customer_id,
             total_orders=total_orders,
-            total_revenue=total_revenue,
+            total_spent=total_spent,
             total_profit=total_profit,
             net_profit_ltv=total_profit,  # Net profit LTV is the total profit from all orders
             average_order_value=average_order_value,
