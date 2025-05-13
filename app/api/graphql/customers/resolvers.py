@@ -54,7 +54,7 @@ class CustomerResolver(BaseResolver[CustomerModel, Customer]):
         try:
             store_uuid = UUID(store_id)
             # Always apply consistent ordering for pagination to work properly
-            query = select(cls.model_class).where(cls.model_class.store_id == store_uuid).order_by(cls.model_class.id)
+            query = select(cls.model_class).where(and_(cls.model_class.store_id == store_uuid,cls.model_class.orders_count > 0)).order_by(cls.model_class.id)
 
             # Track if we're using cursor-based pagination
             has_valid_cursor = False
