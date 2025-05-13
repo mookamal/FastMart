@@ -49,5 +49,6 @@ class CustomerLtvMetrics:
     net_profit_ltv: Numeric
     average_order_value: Numeric
     average_profit_per_order: Numeric
+    total_spent: Numeric
     first_order_date: Date
     last_order_date: Date
