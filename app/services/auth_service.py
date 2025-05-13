@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from app.db.models.user import User as UserModel
 from app.core.security import verify_password, hash_password, create_access_token
 from app.core.config import get_settings
+from app.services.email.password_reset import PasswordResetService
 
 settings = get_settings()
 
@@ -72,4 +73,4 @@ async def create_user_token(user: UserModel) -> Dict[str, Any]:
     return {
         "access_token": access_token,
         "token_type": "bearer"
-    } 
+    }

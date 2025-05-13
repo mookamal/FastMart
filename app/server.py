@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
-from app.api.routers import auth_router
+from app.api.routers import auth_router, password_reset
 from app.api.graphql.router import graphql_router
 
 app = FastAPI(title="Analytic Project API")
@@ -22,6 +22,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router.router, prefix="/api/v1", tags=["auth"])
+app.include_router(password_reset.router, prefix="/api/v1", tags=["auth"])
 app.include_router(graphql_router, prefix="/graphql", tags=["graphql"])
 
 
