@@ -13,6 +13,7 @@ from app.services.analytics.profit_calculator import ProfitCalculator
 
 class DailySalesAnalyticsService:
     """Service for calculating and managing daily sales analytics data."""
+    ANALYTICS_MIN_DATE = date(2019, 1, 1)
     
     @staticmethod
     async def get_daily_analytics(
@@ -133,6 +134,7 @@ class DailySalesAnalyticsService:
             db: Database session
             store_id: Store ID (string or UUID)
         """
+        min_date = DailySalesAnalyticsService.ANALYTICS_MIN_DATE
         async with AsyncSessionLocal() as db0:
             # Convert string ID to UUID if needed
             store_uuid = store_id if isinstance(store_id, UUID) else UUID(store_id)
@@ -141,7 +143,8 @@ class DailySalesAnalyticsService:
             orders_query = select(Order).where(
                 and_(
                     Order.store_id == store_uuid,
-                    Order.cancelled_at == None
+                    Order.cancelled_at == None,
+                    Order.platform_created_at >= min_date # Filter out orders before the minimum date
                 )
             )
             orders_result = await db0.execute(orders_query)
