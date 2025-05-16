@@ -342,6 +342,7 @@ class ShopifyConnector(EcommercePlatformConnector):
             'platform_customer_id': str(platform_order_data.get('customer', {}).get('id')) if platform_order_data.get('customer') else None,
             # Store processed discount applications for analytics
             'discount_applications': processed_discounts,
+            'cancelled_at': self._parse_datetime(platform_order_data.get('cancelled_at')),
             # Line items need separate mapping and linking
             # 'line_items': platform_order_data.get('line_items', [])
         }

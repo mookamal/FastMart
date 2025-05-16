@@ -23,6 +23,7 @@ class Order(Base):
     platform_updated_at = Column(TIMESTAMP(timezone=True), nullable=True)
     synced_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
     discount_applications = Column(JSONB, nullable=True)
+    cancelled_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     store = relationship("Store", back_populates="orders")
     customer = relationship("Customer", back_populates="orders")
