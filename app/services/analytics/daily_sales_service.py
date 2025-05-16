@@ -5,7 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.db.base import AsyncSessionLocal
 from app.db.models.daily_sales_analytics import DailySalesAnalytics
 from app.db.models.order import Order
 from app.services.analytics.profit_calculator import ProfitCalculator
@@ -81,9 +81,9 @@ class DailySalesAnalyticsService:
         orders_query = select(Order).where(
             and_(
                 Order.store_id == store_uuid,
-                Order.created_at >= start_datetime,
-                Order.created_at <= end_datetime,
-                Order.status != 'cancelled'
+                Order.platform_created_at >= start_datetime,
+                Order.platform_created_at <= end_datetime,
+                Order.cancelled_at == None
             )
         )
         orders_result = await db.execute(orders_query)
@@ -126,41 +126,40 @@ class DailySalesAnalyticsService:
             await db.commit()
     
     @staticmethod
-    async def process_all_store_analytics(
-        db: AsyncSession,
-        store_id: Union[str, UUID]
-    ) -> None:
+    async def process_all_store_analytics(store_id: Union[str, UUID]) -> None:
         """Process and store all analytics data for a store without date dependencies.
         
         Args:
             db: Database session
             store_id: Store ID (string or UUID)
         """
-        # Convert string ID to UUID if needed
-        store_uuid = store_id if isinstance(store_id, UUID) else UUID(store_id)
-        
-        # Get all orders for this store
-        orders_query = select(Order).where(
-            and_(
-                Order.store_id == store_uuid,
-                Order.status != 'cancelled'
+        async with AsyncSessionLocal() as db0:
+            # Convert string ID to UUID if needed
+            store_uuid = store_id if isinstance(store_id, UUID) else UUID(store_id)
+            
+            # Get all orders for this store
+            orders_query = select(Order).where(
+                and_(
+                    Order.store_id == store_uuid,
+                    Order.cancelled_at == None
+                )
             )
-        )
-        orders_result = await db.execute(orders_query)
-        orders = orders_result.scalars().all()
+            orders_result = await db0.execute(orders_query)
+            orders = orders_result.scalars().all()
         
         # Group orders by date
         orders_by_date = {}
         for order in orders:
-            order_date = order.created_at.date()
+            order_date = order.platform_created_at.date()
             if order_date not in orders_by_date:
                 orders_by_date[order_date] = []
             orders_by_date[order_date].append(order)
         
         # Process analytics for each date
         for date_key in orders_by_date.keys():
-            await DailySalesAnalyticsService.process_daily_analytics(
-                db=db,
-                store_id=store_uuid,
-                target_date=date_key
-            )
+            async with AsyncSessionLocal() as db:
+                await DailySalesAnalyticsService.process_daily_analytics(
+                    db=db,
+                    store_id=store_uuid,
+                    target_date=date_key
+                )

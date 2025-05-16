@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from app.db.base import AsyncSessionLocal
 from app.tasks.async_helper import celery_async_task
+from app.tasks.analytics_tasks import calculate_all_analytics_for_store
 logger = logging.getLogger(__name__) 
 
 # --- Placeholder CRUD Functions (Replace with actual CRUD module imports if they exist) ---
@@ -334,6 +335,8 @@ async def sync_store_logic(self, store_id: UUID,db: AsyncSession):
         db.add(store)
         await db.commit()
         logger.info(f"Successfully completed initial sync for store_id: {store_id}")
+
+        calculate_all_analytics_for_store.delay(str(store_id))
         return f"Sync completed for store {store_id}."
 
     except Exception as exc:
@@ -506,8 +509,6 @@ async def periodic_sync_store(self, store_id: UUID):
     """Task for periodically syncing data for a specific store."""
     async with AsyncSessionLocal() as db:
         return await _periodic_sync_logic(self, store_id, db)
-
-
 
 # --- Scheduler Task --- 
 async def _schedule_periodic_syncs_logic():
