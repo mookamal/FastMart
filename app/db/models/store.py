@@ -30,6 +30,7 @@ class Store(Base):
     shipping_cost_rules = relationship("ShippingCostRule", back_populates="store", cascade="all, delete-orphan")
     transaction_fee_rules = relationship("TransactionFeeRule", back_populates="store", cascade="all, delete-orphan")
 
+    daily_sales_analytics = relationship("DailySalesAnalytics", back_populates="store")
     __table_args__ = (
         # Unique constraint for user_id, shop_domain, and platform
     )
