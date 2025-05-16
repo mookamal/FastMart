@@ -48,20 +48,17 @@ class DailySalesAnalyticsService:
         return result.scalars().all()
     
     @staticmethod
-    async def calculate_and_store_daily_analytics(
+    async def process_daily_analytics(
         db: AsyncSession,
         store_id: Union[str, UUID],
         target_date: date
-    ) -> DailySalesAnalytics:
-        """Calculate and store daily sales analytics for a specific date.
+    ) -> None:
+        """Process and store daily sales analytics for a specific date without returning data.
         
         Args:
             db: Database session
             store_id: Store ID (string or UUID)
             target_date: The date to calculate analytics for
-            
-        Returns:
-            Created or updated DailySalesAnalytics object
         """
         # Convert string ID to UUID if needed
         store_uuid = store_id if isinstance(store_id, UUID) else UUID(store_id)
@@ -115,7 +112,6 @@ class DailySalesAnalyticsService:
             existing_analytics.average_order_value = average_order_value
             existing_analytics.profit = profit
             await db.commit()
-            return existing_analytics
         else:
             # Create new record
             new_analytics = DailySalesAnalytics(
@@ -128,40 +124,43 @@ class DailySalesAnalyticsService:
             )
             db.add(new_analytics)
             await db.commit()
-            return new_analytics
     
     @staticmethod
-    async def update_analytics_for_date_range(
+    async def process_all_store_analytics(
         db: AsyncSession,
-        store_id: Union[str, UUID],
-        start_date: date,
-        end_date: date
-    ) -> List[DailySalesAnalytics]:
-        """Calculate and store analytics for each day in a date range.
+        store_id: Union[str, UUID]
+    ) -> None:
+        """Process and store all analytics data for a store without date dependencies.
         
         Args:
             db: Database session
             store_id: Store ID (string or UUID)
-            start_date: Start date for the calculation
-            end_date: End date for the calculation
-            
-        Returns:
-            List of created or updated DailySalesAnalytics objects
         """
         # Convert string ID to UUID if needed
         store_uuid = store_id if isinstance(store_id, UUID) else UUID(store_id)
         
-        results = []
-        current_date = start_date
+        # Get all orders for this store
+        orders_query = select(Order).where(
+            and_(
+                Order.store_id == store_uuid,
+                Order.status != 'cancelled'
+            )
+        )
+        orders_result = await db.execute(orders_query)
+        orders = orders_result.scalars().all()
         
-        # Process each day in the range
-        while current_date <= end_date:
-            analytics = await DailySalesAnalyticsService.calculate_and_store_daily_analytics(
+        # Group orders by date
+        orders_by_date = {}
+        for order in orders:
+            order_date = order.created_at.date()
+            if order_date not in orders_by_date:
+                orders_by_date[order_date] = []
+            orders_by_date[order_date].append(order)
+        
+        # Process analytics for each date
+        for date_key in orders_by_date.keys():
+            await DailySalesAnalyticsService.process_daily_analytics(
                 db=db,
                 store_id=store_uuid,
-                target_date=current_date
+                target_date=date_key
             )
-            results.append(analytics)
-            current_date += timedelta(days=1)
-        
-        return results
