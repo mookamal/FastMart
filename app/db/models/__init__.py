@@ -9,6 +9,7 @@ from .ad_spend import AdSpend
 from .other_cost import OtherCost
 from .shipping_cost_rule import ShippingCostRule
 from .transaction_fee_rule import TransactionFeeRule
+from .daily_sales_analytics import DailySalesAnalytics
 
 __all__ = [
     'Customer',
@@ -18,6 +19,7 @@ __all__ = [
     'Order',
     'Product',
     'ProductVariant',
+    'DailySalesAnalytics',
     'AdSpend',
     'OtherCost',
     'ShippingCostRule',

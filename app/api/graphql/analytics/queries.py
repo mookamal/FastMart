@@ -3,6 +3,7 @@ from typing import Optional, List
 from app.api.graphql.common.inputs import DateRangeInput
 from app.api.graphql.analytics.types import ProductVariantAnalytics, DiscountCodeAnalytics, AdSpend, OtherCost
 from app.api.graphql.analytics.net_profit_types import NetProfitMetrics, PnlReport
+from app.api.graphql.analytics.daily_sales_types import DailySalesAnalytics, DailySalesAnalyticsSummary
 from app.api.graphql.permissions import StoreOwnerPermission
 @strawberry.type
 class AnalyticsQuery:
@@ -46,6 +47,26 @@ class AnalyticsQuery:
     ) -> PnlReport:
         from app.api.graphql.analytics.net_profit_resolvers import resolve_profit_and_loss_report
         return await resolve_profit_and_loss_report(info, store_id, date_range)
+    
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
+    async def daily_sales_analytics(
+        self,
+        info,
+        store_id: strawberry.ID,
+        date_range: DateRangeInput,
+    ) -> List[DailySalesAnalytics]:
+        from app.api.graphql.analytics.daily_sales_resolvers import resolve_daily_sales_analytics
+        return await resolve_daily_sales_analytics(info, store_id, date_range)
+    
+    @strawberry.field(permission_classes=[StoreOwnerPermission])
+    async def daily_sales_analytics_summary(
+        self,
+        info,
+        store_id: strawberry.ID,
+        date_range: DateRangeInput,
+    ) -> DailySalesAnalyticsSummary:
+        from app.api.graphql.analytics.daily_sales_resolvers import resolve_daily_sales_analytics_summary
+        return await resolve_daily_sales_analytics_summary(info, store_id, date_range)
         
     @strawberry.field(permission_classes=[StoreOwnerPermission])
     async def ad_spend_entries(
